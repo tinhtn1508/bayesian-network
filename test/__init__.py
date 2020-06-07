@@ -1,4 +1,5 @@
 import sys
-sys.path.insert(0, './../graph')
+sys.path.insert(0, './..')
+import graph
 
-from adjacency_matrix import AdjacencyMatrix
+from .adjacency_matrix_test import AdjacencyMatrixTest, AdjacencyMatrixTestSuite

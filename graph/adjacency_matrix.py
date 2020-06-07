@@ -1,7 +1,27 @@
-from typing import Dict, Optional, Generic, Generator, TypeVar, List, Set, Tuple
+from typing_extensions import Protocol
+from typing import Dict, Optional, Generic, Generator, TypeVar, List, Set, Tuple, Hashable, Any, Union
 
-V = TypeVar('V')
+C = TypeVar('C', bound = 'Comparable')
+
+class Comparable(Protocol):
+    def __eq__(self, other: Any) -> bool:
+        ...
+
+    def __lt__(self: C, other: C) -> bool:
+        ...
+
+    def __gt__(self: C, other: C) -> bool:
+        return (not self < other) and (self != other)
+
+    def __le__(self: C, other: C) -> bool:
+        return (self < other) or (self == other)
+
+    def __ge__(self: C, other: C) -> bool:
+        return not self < other
+
+V = TypeVar('V', bound = Union[Hashable, Comparable])
 W = TypeVar('W', float, int)
+
 class AdjacencyMatrix(Generic[V, W]):
     def __init__(self, verticesList: Optional[List[V]] = None,
                     digraph: bool = False) -> None:
@@ -32,6 +52,7 @@ class AdjacencyMatrix(Generic[V, W]):
         if value is None: raise Exception("input None value")
         if startNode not in self.__map: self.addNewNode(startNode)
         if endNode not in self.__map: self.addNewNode(endNode)
+        isNewPath: bool = self.__map[startNode][endNode] is None
 
         self.__map[startNode][endNode] = value
         self.__edgesSet.add((startNode, endNode))
@@ -43,7 +64,6 @@ class AdjacencyMatrix(Generic[V, W]):
         if startNode not in self.__inDegreeMap: self.__inDegreeMap[startNode] = 0
         if endNode not in self.__inDegreeMap: self.__inDegreeMap[endNode] = 0
 
-        isNewPath: bool = self.__map[startNode][endNode] is None
         if isNewPath:
             self.__outDegreeMap[startNode] += 1
             self.__inDegreeMap[endNode] += 1
@@ -86,11 +106,18 @@ class AdjacencyMatrix(Generic[V, W]):
         for k in sorted(adj.keys()):
             if adj[k] is not None: yield (k, adj[k])
 
-    def allPredecessor(self, v: V) -> Generator[Tuple[V, Optional[W]], None, None]:
+    def allPredecessors(self, v: V) -> Generator[Tuple[V, Optional[W]], None, None]:
         if v is None: raise Exception("input None vertex")
         if v not in self.__map: raise Exception("input vertex not in graph")
         keys: List[V] = self.vertexSet()
         for k in keys:
+            if self.__map[k][v] is not None: yield (k, self.__map[k][v])
+
+    def allInorderedPredecessors(self, v: V) -> Generator[Tuple[V, Optional[W]], None, None]:
+        if v is None: raise Exception("input None vertex")
+        if v not in self.__map: raise Exception("input vertex not in graph")
+        keys: List[V] = self.vertexSet()
+        for k in sorted(keys):
             if self.__map[k][v] is not None: yield (k, self.__map[k][v])
 
     def vertexSet(self) -> List[V]:

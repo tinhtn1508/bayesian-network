@@ -1,6 +1,4 @@
 import unittest
-import sys
-sys.path.insert(0, './..')
 from graph import AdjacencyMatrix
 from typing import Any, Optional, List
 

@@ -219,7 +219,7 @@ class LinkedList(object):
         self.length = 0
 
     def checkInvariant(self):
-        if not self.head and not self.tai and self.length == 0:
+        if not self.head and not self.tail and self.length == 0:
             return True
         if (not self.head and self.tail) or (self.head and not self.tail):
             return False

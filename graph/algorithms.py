@@ -45,7 +45,7 @@ class TopoSortAlgorithm:
         self.__adjacencyMatrix = adjacencyMatrix
 
     def __dfsFromVertex(self, vertex: V, visited: Set[V], stack: Stack) -> None:
-        if not vertex or not visited or stack is None:
+        if vertex is None or visited is None or stack is None:
             raise Exception(
                 "Invalid input: vertex: {}, visited: {}, stack: {}".format(
                     vertex, visited, stack
@@ -61,11 +61,11 @@ class TopoSortAlgorithm:
     def dfsFromVertex(
         self, vertex: V, visited: Set[V] = None
     ) -> Generator[V, None, None]:
-        if not vertex:
+        if vertex is None:
             raise Exception("Vertex is None")
-        if not self.__adjacencyMatrix.checkVertexExist(vertex):
+        if self.__adjacencyMatrix.checkVertexExist(vertex) is None:
             raise Exception("Node not exist in graph")
-        if not visited:
+        if visited is None:
             visited = set()
         stack: Stack = Stack()
         visited.add(vertex)
@@ -92,11 +92,11 @@ class TopoSortAlgorithm:
     def bfsFromVertex(
         self, vertex: V, visited: Set[V] = None
     ) -> Generator[V, None, None]:
-        if not vertex:
+        if vertex is None:
             raise Exception("Vertex is None")
-        if not self.__adjacencyMatrix.checkVertexExist(vertex):
+        if self.__adjacencyMatrix.checkVertexExist(vertex) is None:
             raise Exception("Vertex: {} not exist in graph".format(vertex))
-        if not visited:
+        if visited is None:
             visited = set()
         queue: Queue = Queue()
         queue.enqueue(vertex)

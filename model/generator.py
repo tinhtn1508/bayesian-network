@@ -1,6 +1,8 @@
 import numpy as np
 from typing import Any, TypeVar, Generator
 
+np.random.seed(0)
+
 
 class GenerateRandomProbability:
     def __init__(self, generator: str = "uniform", ranges: tuple = (0, 1)):

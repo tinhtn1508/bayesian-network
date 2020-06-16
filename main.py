@@ -1,7 +1,9 @@
 import graph
-print(graph.__author__)
-print(graph.__email__)
-print(graph.__version__)
+import argparse
 
 if __name__ == "__main__":
-    print('--------- Bayesian Network ----------')
+    parser = argparse.ArgumentParser()
+    # parser.add_argument("-f", "--my-foo", default="foobar")
+    # parser.add_argument("-b", "--bar-value", default=3.14)
+    # args = parser.parse_args()
+    # print(args.my_foo, args.bar_value)

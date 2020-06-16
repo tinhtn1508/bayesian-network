@@ -96,7 +96,7 @@ class ConditionalProbability(Probability):
         return out
 
 
-class UnconditionalProbability(Probability):
+class DiscreteDistribution(Probability):
     def __init__(
         self, name: str, table: List[float], shape: Tuple[int], features: List[str],
     ):

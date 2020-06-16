@@ -76,18 +76,27 @@ class TopoSortAlgorithm:
 
     def dfs(self) -> Generator[V, None, None]:
         visited = set()
+        stack: Stack = Stack()
         if self.__adjacencyMatrix.isDigraph():
             for vertex in self.__adjacencyMatrix.zeroInDegreeVertexes():
                 if vertex in visited:
                     continue
-                for v in self.dfsFromVertex(vertex, visited):
+                self.__dfsFromVertex(vertex, visited, stack)
+                while(len(stack) > 0):
+                    v, _ = stack.pop()
                     yield v
         else:
-            for vertex in self.__adjacencyMatrix.allVertexes():
-                if vertex in visited:
+            raise Exception("This is not a Digraph")
+
+    def __bfsImpl(self, visited: Set[V], queue: Queue):
+        while len(queue) > 0:
+            v, _ = queue.dequeue()
+            for neighbor, _ in self.__adjacencyMatrix.allSuccessors(v):
+                if neighbor in visited:
                     continue
-                for v in self.dfsFromVertex(vertex, visited):
-                    yield v
+                visited.add(neighbor)
+                queue.enqueue(neighbor)
+            yield v
 
     def bfsFromVertex(
         self, vertex: V, visited: Set[V] = None
@@ -101,26 +110,17 @@ class TopoSortAlgorithm:
         queue: Queue = Queue()
         queue.enqueue(vertex)
         visited.add(vertex)
-        while len(queue) > 0:
-            v, _ = queue.dequeue()
-            for neighbor, _ in self.__adjacencyMatrix.allSuccessors(v):
-                if neighbor in visited:
-                    continue
-                visited.add(neighbor)
-                queue.enqueue(neighbor)
+        for v in self.__bfsImpl(visited, queue):
             yield v
 
     def bfs(self) -> Generator[V, None, None]:
         visited = set()
+        queue: Queue = Queue()
         if self.__adjacencyMatrix.isDigraph():
             for v in self.__adjacencyMatrix.zeroInDegreeVertexes():
-                if v in visited:
-                    continue
-                for sv in self.bfsFromVertex(v, visited):
-                    yield sv
+                visited.add(v)
+                queue.enqueue(v)
+            for v in self.__bfsImpl(visited, queue):
+                yield v
         else:
-            for v in self.__adjacencyMatrix.allVertexes():
-                if v in visited:
-                    continue
-                for sv in self.bfsFromVertex(v, visited):
-                    yield sv
+            raise Exception("This is not a Digraph")

@@ -1,6 +1,5 @@
 from . import AdjacencyMatrix
 from common import Stack, Queue
-from typing_extensions import Protocol
 from typing import (
     Dict,
     Optional,
@@ -15,27 +14,8 @@ from typing import (
     Union,
 )
 
-C = TypeVar("C", bound="Comparable")
 
-
-class Comparable(Protocol):
-    def __eq__(self, other: Any) -> bool:
-        ...
-
-    def __lt__(self: C, other: C) -> bool:
-        ...
-
-    def __gt__(self: C, other: C) -> bool:
-        return (not self < other) and (self != other)
-
-    def __le__(self: C, other: C) -> bool:
-        return (self < other) or (self == other)
-
-    def __ge__(self: C, other: C) -> bool:
-        return not self < other
-
-
-V = TypeVar("V", bound=Union[Hashable, Comparable])
+V = TypeVar("V", bound=Union[Hashable])
 
 
 class TopoSortAlgorithm:

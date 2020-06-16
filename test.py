@@ -1,6 +1,7 @@
 import test
 import unittest
 
+
 def main():
     runner = unittest.TextTestRunner()
 
@@ -15,6 +16,10 @@ def main():
 
     print("Running unit test for Topo Sort Algorithm")
     runner.run(test.TopoSortTestSuite())
+
+    print("Running unit test for Generator")
+    runner.run(test.GeneratorTestSuite())
+
 
 if __name__ == "__main__":
     main()

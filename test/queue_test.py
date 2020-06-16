@@ -1,6 +1,7 @@
 import unittest
 from common import Queue
 
+
 class QueueTest(unittest.TestCase):
     def setUp(self) -> None:
         self.__queue = Queue()
@@ -35,9 +36,9 @@ class QueueTest(unittest.TestCase):
 
 def QueueTestSuite() -> unittest.TestSuite:
     suite = unittest.TestSuite()
-    suite.addTest(QueueTest('testDequeue'))
-    suite.addTest(QueueTest('testEnqueue'))
-    suite.addTest(QueueTest('testFindKey'))
-    suite.addTest(QueueTest('testEnqueueEmptyKey'))
-    suite.addTest(QueueTest('testDequeueAll'))
+    suite.addTest(QueueTest("testDequeue"))
+    suite.addTest(QueueTest("testEnqueue"))
+    suite.addTest(QueueTest("testFindKey"))
+    suite.addTest(QueueTest("testEnqueueEmptyKey"))
+    suite.addTest(QueueTest("testDequeueAll"))
     return suite

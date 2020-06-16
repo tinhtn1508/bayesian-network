@@ -1,9 +1,22 @@
 from . import AdjacencyMatrix
 from common import Stack, Queue
 from typing_extensions import Protocol
-from typing import Dict, Optional, Generic, Generator, TypeVar, List, Set, Tuple, Hashable, Any, Union
+from typing import (
+    Dict,
+    Optional,
+    Generic,
+    Generator,
+    TypeVar,
+    List,
+    Set,
+    Tuple,
+    Hashable,
+    Any,
+    Union,
+)
 
-C = TypeVar('C', bound = 'Comparable')
+C = TypeVar("C", bound="Comparable")
+
 
 class Comparable(Protocol):
     def __eq__(self, other: Any) -> bool:
@@ -21,17 +34,23 @@ class Comparable(Protocol):
     def __ge__(self: C, other: C) -> bool:
         return not self < other
 
-V = TypeVar('V', bound = Union[Hashable, Comparable])
 
-class TopoSortAlgorithm():
+V = TypeVar("V", bound=Union[Hashable, Comparable])
+
+
+class TopoSortAlgorithm:
     def __init__(self, adjacencyMatrix: AdjacencyMatrix):
         if not adjacencyMatrix:
-            raise Exception('Invalid input param')
+            raise Exception("Invalid input param")
         self.__adjacencyMatrix = adjacencyMatrix
 
     def __dfsFromVertex(self, vertex: V, visited: Set[V], stack: Stack) -> None:
         if not vertex or not visited or stack is None:
-            raise Exception('Invalid input: vertex: {}, visited: {}, stack: {}'.format(vertex, visited, stack))
+            raise Exception(
+                "Invalid input: vertex: {}, visited: {}, stack: {}".format(
+                    vertex, visited, stack
+                )
+            )
         for neighbor, _ in self.__adjacencyMatrix.allSuccessors(vertex):
             if neighbor in visited:
                 continue
@@ -39,11 +58,13 @@ class TopoSortAlgorithm():
             self.__dfsFromVertex(neighbor, visited, stack)
         stack.push(vertex)
 
-    def dfsFromVertex(self, vertex: V, visited: Set[V] = None) -> Generator[V, None, None]:
+    def dfsFromVertex(
+        self, vertex: V, visited: Set[V] = None
+    ) -> Generator[V, None, None]:
         if not vertex:
-            raise Exception('Vertex is None')
+            raise Exception("Vertex is None")
         if not self.__adjacencyMatrix.checkVertexExist(vertex):
-            raise Exception('Node not exist in graph')
+            raise Exception("Node not exist in graph")
         if not visited:
             visited = set()
         stack: Stack = Stack()
@@ -68,7 +89,9 @@ class TopoSortAlgorithm():
                 for v in self.dfsFromVertex(vertex, visited):
                     yield v
 
-    def bfsFromVertex(self, vertex: V, visited: Set[V] = None) -> Generator[V, None, None]:
+    def bfsFromVertex(
+        self, vertex: V, visited: Set[V] = None
+    ) -> Generator[V, None, None]:
         if not vertex:
             raise Exception("Vertex is None")
         if not self.__adjacencyMatrix.checkVertexExist(vertex):

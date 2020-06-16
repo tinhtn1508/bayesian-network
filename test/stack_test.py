@@ -1,6 +1,7 @@
 import unittest
 from common import Stack
 
+
 class StackTest(unittest.TestCase):
     def setUp(self) -> None:
         self.__stack = Stack()
@@ -35,9 +36,9 @@ class StackTest(unittest.TestCase):
 
 def StackTestSuite() -> unittest.TestSuite:
     suite = unittest.TestSuite()
-    suite.addTest(StackTest('testPop'))
-    suite.addTest(StackTest('testPush'))
-    suite.addTest(StackTest('testFindKey'))
-    suite.addTest(StackTest('testPushEmptyKey'))
-    suite.addTest(StackTest('testPopAll'))
+    suite.addTest(StackTest("testPop"))
+    suite.addTest(StackTest("testPush"))
+    suite.addTest(StackTest("testFindKey"))
+    suite.addTest(StackTest("testPushEmptyKey"))
+    suite.addTest(StackTest("testPopAll"))
     return suite

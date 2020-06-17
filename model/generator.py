@@ -1,35 +1,44 @@
 import numpy as np
-from typing import Any, TypeVar, Generator
+from typing import (
+    Any,
+    TypeVar,
+    Generator,
+    Hashable,
+    Dict,
+    Tuple,
+    Optional,
+)
 
 np.random.seed(0)
 
 
 class GenerateRandomProbability:
-    def __init__(self, generator: str = "uniform", ranges: tuple = (0, 1)):
-        self.__generatorType = generator
-        self.__nSamples = 0
-        self.__cdfDistribution = None
-        self.__ranges = ranges
+    def __init__(self, generator: str = "uniform", ranges: Tuple[int, int] = (0, 1)) -> None:
+        self.__generatorType: str                                   = generator
+        self.__nSamples: int                                        = 0
+        self.__cdfDistribution: Optional[Dict[Hashable, float]]     = None
+        self.__ranges: Tuple[int, int]                              = ranges
 
-    def fit(self, distribution: map, nSamples: int = 1) -> None:
+    def fit(self, distribution: Dict[Hashable, float], nSamples: int = 1) -> None:
         if not isinstance(distribution, dict):
             raise Exception(
                 "Don't support distribution type: {}".format(type(distribution))
             )
-        if sum(distribution.values()) != 1.0:
+        sumProb: float = sum(distribution.values())
+        if sumProb > 1.0 + 1e-4 or sumProb < 1.0 - 1e-4:
             raise Exception("Incorrect distribution")
 
         self.__nSamples = nSamples
         self.__cumulativeDistributionFunction(distribution)
 
-    def __cumulativeDistributionFunction(self, distribution: map):
-        self.__cdfDistribution = dict(sorted(distribution.items(), key=lambda x: x[1]))
-        sumProb = 0
+    def __cumulativeDistributionFunction(self, distribution: Dict[Hashable, float]) -> None:
+        self.__cdfDistribution = distribution
+        sumProb: float = 0
         for key, prob in self.__cdfDistribution.items():
             self.__cdfDistribution[key] = prob + sumProb
             sumProb += prob
 
-    def generate(self) -> Generator:
+    def generate(self) -> Generator[Hashable, None, None]:
         if self.__cdfDistribution is None:
             raise Exception("Please use the fit method before generating")
         for sample_pro in self.__samples():
@@ -49,7 +58,7 @@ class GenerateRandomProbability:
             )
 
     def __str__(self):
-        output = "Generator type: {}\nNumber of samples: {}\nRanges: {}\ncdf: {}".format(
+        output: str = "Generator type: {}\nNumber of samples: {}\nRanges: {}\ncdf: {}".format(
             self.__generatorType, self.__nSamples, self.__ranges, self.__cdfDistribution
         )
         return output

@@ -13,7 +13,7 @@ class GenerateRandomProbabilityTest(unittest.TestCase):
         radom.fit(distribution)
         res = list(radom.generate())
         self.assertTrue(res[0] in distribution.keys())
-        N: int = 10000
+        N: int = 100000
         res = []
         for _ in range(N):
             res.append(list(radom.generate())[0])
@@ -21,7 +21,23 @@ class GenerateRandomProbabilityTest(unittest.TestCase):
         isA1 = resNumpy == "A1"
         numOfA1 = resNumpy[isA1]
         delta = 0.3 - len(numOfA1) / N
-        self.assertTrue(delta < 1e-2)
+        self.assertTrue(abs(delta) < 1e-2)
+
+    def testGenerate2(self) -> None:
+        radom = GenerateRandomProbability()
+        distribution = {"wqQWD": 0.05, "fsfs": 0.15, "gthttrh": 0.17, "gwrwer": 0.13, "gvsds": 0.3, "wetwf": 0.2}
+        radom.fit(distribution)
+        res = list(radom.generate())
+        self.assertTrue(res[0] in distribution.keys())
+        N: int = 100000
+        res = []
+        for _ in range(N):
+            res.append(list(radom.generate())[0])
+        resNumpy = np.array(res)
+        isA1 = resNumpy == "gthttrh"
+        numOfA1 = resNumpy[isA1]
+        delta = 0.17 - len(numOfA1) / N
+        self.assertTrue(abs(delta) < 1e-2)
 
     def testGenerateAbnormal(self) -> None:
         radom = GenerateRandomProbability()
@@ -51,6 +67,7 @@ class GenerateRandomProbabilityTest(unittest.TestCase):
 def GeneratorTestSuite() -> unittest.TestSuite:
     suite = unittest.TestSuite()
     suite.addTest(GenerateRandomProbabilityTest("testGenerate1"))
+    suite.addTest(GenerateRandomProbabilityTest("testGenerate2"))
     suite.addTest(GenerateRandomProbabilityTest("testGenerateAbnormal"))
     suite.addTest(GenerateRandomProbabilityTest("testGenerateIncorrectDistribution1"))
     suite.addTest(GenerateRandomProbabilityTest("testGenerateIncorrectDistribution2"))

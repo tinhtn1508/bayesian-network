@@ -22,10 +22,10 @@ class Node:
         self.__probTable = probTable
 
     def getName(self) -> str:
-        return self.__probTable.getName()
+        return self.__probTable.name
 
     def getFeatures(self) -> List[str]:
-        return self.__probTable.getFeatures()
+        return self.__probTable.features
 
     def getDistribution(self, param: Hashable = None):
         return self.__probTable.getProbability(param)

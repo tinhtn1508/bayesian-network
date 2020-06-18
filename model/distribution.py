@@ -24,7 +24,7 @@ class Probability:
         features: List[str],
         conditions: List[str],
     ):
-        self._name = name
+        self.name = name
         self._features = {val: index for index, val in enumerate(features)}
         if len(table) != reduce((lambda x, y: x * y), shape):
             raise Exception(
@@ -37,19 +37,27 @@ class Probability:
         if sumProb.mean() != 1.0:
             raise Exception("Incorrect probability")
 
-    def getFeatures(self) -> List[str]:
+    @property
+    def features(self) -> List[str]:
         return list(self._features.keys())
 
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return self._name
 
-    def getConditions(self) -> List[str]:
+    @name.setter
+    def name(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def conditions(self) -> List[str]:
         raise NotImplementedError
 
     def getProbability(self, mNodes: Hashable) -> np.array:
         raise NotImplementedError
 
-    def setConditionalFeatures(self, condFeatures: Hashable) -> None:
+    @conditions.setter
+    def conditions(self, condFeatures: Hashable) -> None:
         raise NotImplementedError
 
     def __str__(self) -> str:
@@ -70,10 +78,12 @@ class ConditionalProbability(Probability):
         self.__conditions = {val: index for index, val in enumerate(conditions)}
         self.__conditionalFeatures = dict()
 
-    def getConditions(self) -> List[str]:
+    @property
+    def conditions(self) -> List[str]:
         return list(self.__conditions.keys())
 
-    def setConditionalFeatures(self, condFeatures: Hashable) -> None:
+    @conditions.setter
+    def conditions(self, condFeatures: Hashable) -> None:
         for condition, features in condFeatures.items():
             if condition not in self.__conditions:
                 raise Exception("Invalid condition")

@@ -22,18 +22,18 @@ class Probability:
         table: List[float],
         shape: Tuple[int],
         features: List[str],
-        conditions: List[str],
+        conditions: Optional[List[str]],
     ):
-        self.name = name
-        self._features = {val: index for index, val in enumerate(features)}
+        self._name: str = name
+        self._features: Dict[str, int] = {val: index for index, val in enumerate(features)}
         if len(table) != reduce((lambda x, y: x * y), shape):
             raise Exception(
                 "Don't match between length of table and shape, length: {}, shape: {}".format(
                     len(table), shape
                 )
             )
-        self._table = np.array(table).reshape(shape)
-        sumProb = np.sum(self._table, axis=len(self._table.shape) - 1)
+        self._table: np.array = np.array(table).reshape(shape)
+        sumProb: np.array = np.sum(self._table, axis=len(self._table.shape) - 1)
         if sumProb.mean() != 1.0:
             raise Exception("Incorrect probability")
 
@@ -53,11 +53,11 @@ class Probability:
     def conditions(self) -> List[str]:
         raise NotImplementedError
 
-    def getProbability(self, mNodes: Hashable) -> np.array:
+    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> np.array:
         raise NotImplementedError
 
     @conditions.setter
-    def conditions(self, condFeatures: Hashable) -> None:
+    def conditions(self, condFeatures: Dict[str, List[str]]) -> None:
         raise NotImplementedError
 
     def __str__(self) -> str:
@@ -75,15 +75,15 @@ class ConditionalProbability(Probability):
         conditions: List[str],
     ):
         super().__init__(name, table, shape, features, conditions)
-        self.__conditions = {val: index for index, val in enumerate(conditions)}
-        self.__conditionalFeatures = dict()
+        self.__conditions: Dict[str, int] = {val: index for index, val in enumerate(conditions)}
+        self.__conditionalFeatures: Dict[str, Dict[str, int]] = dict()
 
     @property
     def conditions(self) -> List[str]:
         return list(self.__conditions.keys())
 
     @conditions.setter
-    def conditions(self, condFeatures: Hashable) -> None:
+    def conditions(self, condFeatures: Dict[str, List[str]]) -> None:
         for condition, features in condFeatures.items():
             if condition not in self.__conditions:
                 raise Exception("Invalid condition")
@@ -95,12 +95,14 @@ class ConditionalProbability(Probability):
         # TODO
         pass
 
-    def getProbability(self, mNodes: Hashable) -> np.array:
-        index = []
+    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> np.array:
+        if mNodes is None:
+            raise Exception("input None node")
+        index: List[int] = []
         for node, feature in mNodes.items():
             index.append(self.__conditionalFeatures[node][feature])
 
-        out = self._table
+        out: np.array = self._table
         for i in index:
             out = out[i]
         return out
@@ -109,8 +111,8 @@ class ConditionalProbability(Probability):
 class DiscreteDistribution(Probability):
     def __init__(
         self, name: str, table: List[float], shape: Tuple[int], features: List[str],
-    ):
+    ) -> None:
         super().__init__(name, table, shape, features, None)
 
-    def getProbability(self, mNodes: Hashable = None) -> np.array:
+    def getProbability(self, mNodes: Optional[Dict[str, str]] = None) -> np.array:
         return self._table[0]

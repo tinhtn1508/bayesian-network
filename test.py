@@ -20,6 +20,9 @@ def main():
     print("Running unit test for Generator")
     runner.run(test.GeneratorTestSuite())
 
+    print("Running unit test for Distribution")
+    runner.run(test.DistributionTestSuite())
+
 
 if __name__ == "__main__":
     main()

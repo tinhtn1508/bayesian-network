@@ -41,7 +41,6 @@ network.addPath(nodeG, nodeL)
 network.addPath(nodeI, nodeS)
 network.addPath(nodeP, nodeG)
 network.addPath(nodeI, nodeG)
-topo = TopoSortAlgorithm(network)
-
-for res in topo.bfs():
-    print(res, res.getFeatures())
+samples = network.forward()
+print(network.forwardStats({"D": "Easy", "I": "Low", "G": "A", "S": "High", "L": "High"}, None))
+print(network.forwardStats({"L": "High"}, {"D": "Easy", "I": "Low", "G": "A", "S": "High"}))

@@ -18,20 +18,22 @@ from typing import (
 
 
 class Node:
-    def __init__(self, probTable: Probability):
-        self.__probTable = probTable
+    def __init__(self, probTable: Probability) -> None:
+        self.__probTable: Probability = probTable
 
-    def getName(self) -> str:
+    @property
+    def name(self) -> str:
         return self.__probTable.name
 
-    def getFeatures(self) -> List[str]:
+    @property
+    def features(self) -> List[str]:
         return self.__probTable.features
 
-    def getDistribution(self, param: Hashable = None):
+    def getDistribution(self, param: Optional[Dict[str, str]] = None) -> Dict[str, float]:
         return self.__probTable.getProbability(param)
 
-    def __str__(self):
-        return self.getName()
+    def __str__(self) -> str:
+        return self.name
 
     @classmethod
     def fromTxt(cls, lineFormat: str):

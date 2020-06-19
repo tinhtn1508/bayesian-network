@@ -1,5 +1,5 @@
 import numpy as np
-from functools import reduce
+from functools import reduce, lru_cache
 from typing import (
     Dict,
     Optional,
@@ -53,12 +53,20 @@ class Probability:
     def conditions(self) -> List[str]:
         raise NotImplementedError
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> np.array:
+    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         raise NotImplementedError
 
     @conditions.setter
     def conditions(self, condFeatures: Dict[str, List[str]]) -> None:
         raise NotImplementedError
+
+    def _produceDistributionOutput(self, arr: np.array) -> Dict[str, float]:
+        if len(arr) != len(self.features):
+            raise Exception("number of probs ({}) != number of features ({})".format(len(arr), len(self.features)))
+        result: Dict[str, float] = dict()
+        for feature, prob in zip(self.features, arr):
+            result[feature] = prob
+        return result
 
     def __str__(self) -> str:
         # TODO
@@ -95,17 +103,19 @@ class ConditionalProbability(Probability):
         # TODO
         pass
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> np.array:
+    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         if mNodes is None:
             raise Exception("input None node")
         index: List[int] = []
         for node, feature in mNodes.items():
+            if node not in self.__conditionalFeatures:
+                continue
             index.append(self.__conditionalFeatures[node][feature])
 
         out: np.array = self._table
         for i in index:
             out = out[i]
-        return out
+        return self._produceDistributionOutput(out)
 
 
 class DiscreteDistribution(Probability):
@@ -114,5 +124,9 @@ class DiscreteDistribution(Probability):
     ) -> None:
         super().__init__(name, table, shape, features, None)
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]] = None) -> np.array:
-        return self._table[0]
+    # @lru_cache(maxsize = 32)
+    def getProbability(self, mNodes: Optional[Dict[str, str]] = None) -> Dict[str, float]:
+        probs: np.array = self._table[0]
+        if len(probs) != len(self._features):
+            raise Exception("number of probs ({}) != number of features ({})".format(len(probs), len(self._features)))
+        return self._produceDistributionOutput(probs)

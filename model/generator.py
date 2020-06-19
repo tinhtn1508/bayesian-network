@@ -38,6 +38,15 @@ class GenerateRandomProbability:
             self.__cdfDistribution[key] = prob + sumProb
             sumProb += prob
 
+    def oneSample(self) -> Hashable:
+        if self.__cdfDistribution is None:
+            raise Exception("Please use the fit method before generating")
+        rnd: float = np.random.uniform(self.__ranges[0], self.__ranges[1], 1)[0]
+        for feature, pro in self.__cdfDistribution.items():
+            if rnd <= pro:
+                return feature
+        raise Exception("Cannot acquire any return value with random number: {}".format(rnd))
+
     def generate(self) -> Generator[Hashable, None, None]:
         if self.__cdfDistribution is None:
             raise Exception("Please use the fit method before generating")

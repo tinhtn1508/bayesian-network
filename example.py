@@ -7,8 +7,10 @@ from model import (
     ModelParser,
 )
 from graph import UnweightedDirectionAdjacencyMatrix, TopoSortAlgorithm
+from common import timeExecute
 
 
+@timeExecute
 def fromExample():
     PD = DiscreteDistribution("D", [0.6, 0.4], (1, 2), ["Easy", "Hard"])
     nodeP = Node.fromSample(PD)
@@ -49,6 +51,7 @@ def fromExample():
     print(network.forwardStats({"D": "Easy"}, {"L": "Weak"}))
 
 
+@timeExecute
 def fromTxt():
     parser = ModelParser("model.txt")
     parser.parse()

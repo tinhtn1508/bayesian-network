@@ -2,6 +2,7 @@ from graph import UnweightedDirectionAdjacencyMatrix, TopoSortAlgorithm
 from .nodes import Node
 from .generator import GenerateRandomProbability
 from functools import partial
+from common import timeExecute
 from typing import (
     Dict,
     Optional,
@@ -28,12 +29,11 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __forwardGenerateSample(self) -> Dict[str, str]:
         state: Dict[str, str] = dict()
         for node in self.__topoNodes:
-            distribution: Dict[str, float] = node.getDistribution(state)
-            self.__generator.fit(distribution)
-            sample = self.__generator.oneSample()
+            sample = node.generateSample(state)
             state[node.name] = sample
         return state
 
+    @timeExecute
     def forward(self, steps=-1) -> List[Dict[str, str]]:
         if len(self.vertexSet()) == 0:
             raise Exception("Graph haven't been initialized!")
@@ -67,6 +67,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         cnt: int = 0
         for _ in self.__forwardSamplesFilter(samples, prob):
             cnt += 1
+        print(cnt)
         return cnt / len(samples)
 
     def forwardStats(

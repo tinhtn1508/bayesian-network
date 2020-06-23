@@ -1,5 +1,6 @@
 import numpy as np
 
+from common import timeExecute
 from .generator import GenerateRandomProbability
 from .distribution import DiscreteDistribution, ConditionalProbability, Probability
 from typing import (
@@ -40,6 +41,9 @@ class Node:
         self, param: Optional[Dict[str, str]] = None
     ) -> Dict[str, float]:
         return self.__probTable.getProbability(param)
+
+    def generateSample(self, param: Optional[Dict[str, str]] = None):
+        return self.__probTable.generateSample(param)
 
     def isCondition(self):
         return isinstance(self.__probTable, ConditionalProbability)

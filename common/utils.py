@@ -1,4 +1,5 @@
 import time
+import copy
 
 
 def timeExecute(method):
@@ -11,26 +12,20 @@ def timeExecute(method):
     return timed
 
 
-# something wrong at here !!!
 def cacheDict(method):
-    print("fsdfadsf")
     cacheTable = dict()
 
     def cached(*args, **kwargs):
-        key = "".join(k for k in args[1].values())
+        # key = "".join(k for k in args[1].values())
         # key.join(k for k in args[1].keys())
+        key = id(args[1])
+        # print(key)
         if key in cacheTable:
-            print("cached ", args[1])
             return cacheTable[key]
         else:
-            print("tinhtn  ", args[1])
             res = method(*args, **kwargs)
             cacheTable[key] = res
-            print(cacheTable)
-            print(res)
-            print(cacheTable[key])
             return res
 
-    print("kjkhhkh", cacheTable)
     return cached
 

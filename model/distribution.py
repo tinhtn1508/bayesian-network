@@ -1,5 +1,7 @@
 import numpy as np
 from functools import reduce, lru_cache
+from common import cacheDict
+from .generator import generateOneSample
 from typing import (
     Dict,
     Optional,
@@ -15,6 +17,13 @@ from typing import (
 )
 
 
+def totuple(a):
+    try:
+        return tuple(totuple(i) for i in a)
+    except TypeError:
+        return a
+
+
 class Probability:
     def __init__(
         self,
@@ -26,7 +35,7 @@ class Probability:
     ):
         self._name: str = name
         self._features: Dict[str, int] = {
-            val: index for index, val in enumerate(features)
+            index: val for index, val in enumerate(features)
         }
         if len(table) != reduce((lambda x, y: x * y), shape):
             raise Exception(
@@ -35,13 +44,14 @@ class Probability:
                 )
             )
         self._table: np.array = np.array(table).reshape(shape)
+        self._cdfTable = np.cumsum(self._table, axis=len(self._table.shape) - 1)
         sumProb: np.array = np.sum(self._table, axis=len(self._table.shape) - 1)
         if sumProb.mean() != 1.0:
             raise Exception("Incorrect probability")
 
     @property
     def features(self) -> List[str]:
-        return list(self._features.keys())
+        return list(self._features.values())
 
     @property
     def name(self) -> str:
@@ -62,6 +72,7 @@ class Probability:
     def conditions(self, condFeatures: Dict[str, List[str]]) -> None:
         raise NotImplementedError
 
+    @cacheDict
     def _produceDistributionOutput(self, arr: np.array) -> Dict[str, float]:
         if len(arr) != len(self.features):
             raise Exception(
@@ -106,6 +117,9 @@ class ConditionalProbability(Probability):
                 val: index for index, val in enumerate(features)
             }
 
+    def getConditionalFeatures(self):
+        return self.__conditionalFeatures
+
     def getProbabilities(self, features: List[str]) -> np.array:
         # TODO
         pass
@@ -119,10 +133,24 @@ class ConditionalProbability(Probability):
                 continue
             index.append(self.__conditionalFeatures[node][feature])
 
-        out: np.array = self._table
+        out: np.array = self._cdfTable
         for i in index:
             out = out[i]
         return self._produceDistributionOutput(out)
+
+    def generateSample(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
+        if mNodes is None:
+            raise Exception("input None node")
+        index: List[int] = []
+        for node, feature in mNodes.items():
+            if node not in self.__conditionalFeatures:
+                continue
+            index.append(self.__conditionalFeatures[node][feature])
+        out: np.array = self._cdfTable
+        for i in index:
+            out = out[i]
+        iSample = generateOneSample(out)
+        return self._features[iSample]
 
 
 class DiscreteDistribution(Probability):
@@ -131,7 +159,6 @@ class DiscreteDistribution(Probability):
     ) -> None:
         super().__init__(name, table, shape, features, None)
 
-    # @lru_cache(maxsize = 32)
     def getProbability(
         self, mNodes: Optional[Dict[str, str]] = None
     ) -> Dict[str, float]:
@@ -143,3 +170,7 @@ class DiscreteDistribution(Probability):
                 )
             )
         return self._produceDistributionOutput(probs)
+
+    def generateSample(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
+        iSample = generateOneSample(self._cdfTable[0])
+        return self._features[iSample]

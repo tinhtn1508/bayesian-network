@@ -106,7 +106,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         )
 
     def __likelihoodSampleWeight(self, sample: Dict[str, str]):
-        w: float= 1.0
+        w: float = 1.0
         for conditionName, conditionValue in self.__likelihoodOriginalState.items():
             w *= self.__nodeTable[conditionName].getProbability(sample, conditionValue)
         return sample, w
@@ -115,7 +115,9 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if prob is None:
             raise Exception("No prob is required!!!")
         if self.__likelihoodSamples is None or len(self.__likelihoodSamples) == 0:
-            raise Exception("likelihood process haven't been run, call likelihood() first!")
+            raise Exception(
+                "likelihood process haven't been run, call likelihood() first!"
+            )
         for name in prob:
             if name in self.__likelihoodOriginalState:
                 raise Exception(
@@ -130,9 +132,11 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             totalw += w
             if self.__filterSample(prob, sample):
                 conditionw += w
-        return conditionw/totalw
+        return conditionw / totalw
 
-    def __likelihoodGenerateSample(self, originalState: Dict[str, str]) -> Dict[str, str]:
+    def __likelihoodGenerateSample(
+        self, originalState: Dict[str, str]
+    ) -> Dict[str, str]:
         state: Dict[str, str] = deepcopy(originalState)
         for node in self.__topoNodes:
             if node.name in state:
@@ -141,7 +145,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             state[node.name] = sample
         return state
 
-    @ timeExecute
+    @timeExecute
     def likelihood(self, originalState: Dict[str, str], steps: int = -1):
         if originalState is None:
             raise Exception("expect to have original state!")

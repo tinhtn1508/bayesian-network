@@ -7,7 +7,11 @@ def timeExecute(method):
         start = time.time()
         result = method(*args, **kwargs)
         end = time.time()
-        print("Time execution of {} is: {} ms".format(method, (end - start) * 1000))
+        print(
+            "Time execution of '{}' function is: {} ms".format(
+                method.__name__, (end - start) * 1000
+            )
+        )
         return result
 
     return timed

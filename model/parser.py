@@ -75,3 +75,45 @@ class ModelParser(TxtParser):
 
     def getNodes(self) -> Dict[str, Node]:
         return self.__nodes
+
+
+class TestParser(TxtParser):
+    def __init__(self, filePath: str) -> None:
+        super().__init__(filePath)
+        self.__numOfQueries: int = 0
+        self.__queriesTable: List = list()
+
+    def parse(self) -> None:
+        lines = self.readLines()
+        self.__numOfQueries = int(lines[0])
+        if self.__numOfQueries < 1 or self.__numOfQueries > 999:
+            raise Exception(
+                "Don't support number of query: {}".format(self.__numOfQueries)
+            )
+        if self.__numOfQueries != len(lines[1:]):
+            raise Exception(
+                "__numOfQueries: {} != len(line): {}".format(
+                    self.__numOfQueries, len(lines[1:])
+                )
+            )
+        for line in lines[1:]:
+            format = line.split(";")
+            inferFormat = format[0]
+            infer = self.__parse(inferFormat)
+
+            if len(format) == 1:
+                self.__queriesTable.append((infer, None))
+            else:
+                proof = self.__parse(format[1])
+                self.__queriesTable.append((infer, proof))
+
+    def __parse(self, lineFormat):
+        format = lineFormat.split(",")
+        output = dict()
+        for c in format:
+            featureFormat = c.split("=")
+            output[featureFormat[0]] = featureFormat[1]
+        return output
+
+    def getQueriesTable(self):
+        return self.__queriesTable

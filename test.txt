@@ -1,0 +1,6 @@
+5
+L=Weak;I=Low,D=Hard
+D=Easy;L=Strong
+D=Easy;L=Weak
+G=C
+G=A

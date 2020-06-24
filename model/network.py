@@ -17,10 +17,16 @@ from typing import (
     Any,
     Union,
 )
+import multiprocessing
+import time
+
+
+def workers(n):
+    pass
 
 
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
-    def __init__(self, initializedSamples: int = 100000):
+    def __init__(self, initializedSamples: int = 1000000):
         super().__init__(None)
         self.__generator: GenerateRandomProbability = GenerateRandomProbability()
         self.__initSamples: int = initializedSamples
@@ -34,12 +40,16 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         super().addNewNode(node)
         self.__nodeTable[node.name] = node
 
-    def __generateSample(self) -> Dict[str, str]:
-        state: Dict[str, str] = dict()
-        for node in self.__topoNodes:
-            sample = node.generateSample(state)
-            state[node.name] = sample
-        return state
+    @timeExecute
+    def __generateSample(self, nSamples: int) -> Dict[str, str]:
+        samples = []
+        for _ in range(nSamples):
+            state: Dict[str, str] = dict()
+            for node in self.__topoNodes:
+                sample = node.generateSample(state)
+                state[node.name] = sample
+            samples.append(state)
+        return samples
 
     @timeExecute
     def generateSamples(self, steps=-1) -> List[Dict[str, str]]:
@@ -51,8 +61,18 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         samples: List[Dict[str, str]] = []
         if steps < 0:
             steps = self.__initSamples
-        for _ in range(steps):
-            samples.append(self.__generateSample())
+        global workers
+
+        def workers(nSamples):
+            return self.__generateSample(nSamples)
+
+        numPool = multiprocessing.cpu_count()
+        samplesList = [int(steps / numPool) + 1 for _ in range(numPool)]
+
+        pool = multiprocessing.Pool(processes=numPool)
+        outputs = pool.map(workers, samplesList)
+        for i in outputs:
+            samples += i
         self.__samples = samples
 
     def __filterSample(self, prob: Dict[str, str], record: Dict[str, str]) -> bool:
@@ -82,7 +102,8 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             raise Exception("No prob is required!!!")
         if self.__samples is None or len(self.__samples) == 0:
             self.generateSamples()
-        if conditions is None: return
+        if conditions is None:
+            return
         for name in prob:
             if name in conditions:
                 raise Exception(
@@ -99,16 +120,13 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             return self.__noneConditionStats(prob, self.__samples)
         return self.__noneConditionStats(
             prob,
-            [
-                item
-                for item in self.__samplesFiltering(
-                    self.__samples, conditions
-                )
-            ],
+            [item for item in self.__samplesFiltering(self.__samples, conditions)],
         )
 
-    def __likelihoodSampleWeight(self, conditions: Dict[str, str], sample: Dict[str, str]):
-        w: float= 1.0
+    def __likelihoodSampleWeight(
+        self, conditions: Dict[str, str], sample: Dict[str, str]
+    ):
+        w: float = 1.0
         for conditionName, conditionValue in conditions.items():
             w *= self.__nodeTable[conditionName].getProbability(sample, conditionValue)
         return sample, w
@@ -124,11 +142,11 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         conditionw: float = 0.0
         for sample, w in map(
             partial(self.__likelihoodSampleWeight, conditions),
-            self.__samplesFiltering(self.__samples, conditions)
+            self.__samplesFiltering(self.__samples, conditions),
         ):
             totalw += w
             if self.__filterSample(prob, sample):
                 conditionw += w
         if totalw == 0.0:
             return 0.0
-        return conditionw/totalw
+        return conditionw / totalw

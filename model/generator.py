@@ -22,6 +22,7 @@ class GenerateRandomProbability:
         self.__cdfDistribution: Optional[Dict[Hashable, float]] = None
         self.__ranges: Tuple[int, int] = ranges
 
+    # @timeExecute
     def fit(self, distribution: Dict[Hashable, float], nSamples: int = 1) -> None:
         if not isinstance(distribution, dict):
             raise Exception(
@@ -29,7 +30,7 @@ class GenerateRandomProbability:
             )
         sumProb: float = sum(distribution.values())
         if sumProb > 1.0 + 1e-4 or sumProb < 1.0 - 1e-4:
-            raise Exception("Incorrect distribution")
+            raise Exception("Incorrect distribution: {}".format(distribution))
 
         self.__nSamples = nSamples
         self.__cumulativeDistributionFunction(distribution)
@@ -43,6 +44,7 @@ class GenerateRandomProbability:
             self.__cdfDistribution[key] = prob + sumProb
             sumProb += prob
 
+    # @timeExecute
     def oneSample(self) -> Hashable:
         if self.__cdfDistribution is None:
             raise Exception("Please use the fit method before generating")

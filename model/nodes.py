@@ -40,7 +40,14 @@ class Node:
     def getDistribution(
         self, param: Optional[Dict[str, str]] = None
     ) -> Dict[str, float]:
-        return self.__probTable.getProbability(param)
+        return self.__probTable.getDistribution(param)
+
+    def getProbability(
+        self, param: Dict[str, str],  feature: str
+    ) -> Dict[str, float]:
+        if param is None:
+            raise Exception("no input param")
+        return self.__probTable.getProbability(param, feature)
 
     def generateSample(self, param: Optional[Dict[str, str]] = None):
         return self.__probTable.generateSample(param)

@@ -35,8 +35,9 @@ class Probability:
     ):
         self._name: str = name
         self._features: Dict[str, int] = {
-            index: val for index, val in enumerate(features)
+            val: index for index, val in enumerate(features)
         }
+        self._featuresArray: List[str] = features
         if len(table) != reduce((lambda x, y: x * y), shape):
             raise Exception(
                 "Don't match between length of table and shape, length: {}, shape: {}".format(
@@ -51,7 +52,7 @@ class Probability:
 
     @property
     def features(self) -> List[str]:
-        return list(self._features.values())
+        return list(self._featuresArray)
 
     @property
     def name(self) -> str:
@@ -65,7 +66,7 @@ class Probability:
     def conditions(self) -> List[str]:
         raise NotImplementedError
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
+    def getDistribution(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         raise NotImplementedError
 
     @conditions.setter
@@ -124,7 +125,8 @@ class ConditionalProbability(Probability):
         # TODO
         pass
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
+    # @timeExecute
+    def getDistribution(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         if mNodes is None:
             raise Exception("input None node")
         index: List[int] = []
@@ -138,6 +140,20 @@ class ConditionalProbability(Probability):
             out = out[i]
         return self._produceDistributionOutput(out)
 
+    def getProbability(self, mNodes: Optional[Dict[str, str]], feature: str) -> float:
+        if mNodes is None:
+            raise Exception("input None node")
+        index: List[int] = []
+        for node, feature in mNodes.items():
+            if node not in self.__conditionalFeatures:
+                continue
+            index.append(self.__conditionalFeatures[node][feature])
+
+        out: np.array = self._cdfTable
+        for i in index:
+            out = out[i]
+        return out[self._features[feature]]
+
     def generateSample(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         if mNodes is None:
             raise Exception("input None node")
@@ -150,7 +166,7 @@ class ConditionalProbability(Probability):
         for i in index:
             out = out[i]
         iSample = generateOneSample(out)
-        return self._features[iSample]
+        return self._featuresArray[iSample]
 
 
 class DiscreteDistribution(Probability):
@@ -159,18 +175,28 @@ class DiscreteDistribution(Probability):
     ) -> None:
         super().__init__(name, table, shape, features, None)
 
-    def getProbability(
+    def getDistribution(
         self, mNodes: Optional[Dict[str, str]] = None
     ) -> Dict[str, float]:
         probs: np.array = self._table[0]
-        if len(probs) != len(self._features):
+        if len(probs) != len(self._featuresArray):
             raise Exception(
                 "number of probs ({}) != number of features ({})".format(
-                    len(probs), len(self._features)
+                    len(probs), len(self._featuresArray)
                 )
             )
         return self._produceDistributionOutput(probs)
 
+    def getProbability(self, mNodes: Optional[Dict[str, str]], feature: str) -> float:
+        probs: np.array = self._table[0]
+        if len(probs) != len(self._featuresArray):
+            raise Exception(
+                "number of probs ({}) != number of features ({})".format(
+                    len(probs), len(self._featuresArray)
+                )
+            )
+        return probs[self._features[feature]]
+
     def generateSample(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         iSample = generateOneSample(self._cdfTable[0])
-        return self._features[iSample]
+        return self._featuresArray[iSample]

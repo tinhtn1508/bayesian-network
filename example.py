@@ -72,14 +72,16 @@ def fromTxt():
         for condition in node.conditions:
             network.addPath(nodes[condition], node)
 
+    samples = network.likelihood({"I": "Low", "D": "Hard"})
     samples = network.forward()
-    print(network.forwardStats({"G": "A"}, None))
-    print(network.forwardStats({"G": "B"}, None))
-    print(network.forwardStats({"G": "C"}, None))
+    # print(network.forwardStats({"G": "A"}, None))
+    # print(network.forwardStats({"G": "B"}, None))
+    # print(network.forwardStats({"G": "C"}, None))
     print(network.forwardStats({"L": "Strong"}, {"I": "Low", "D": "Hard"}))
-    print(network.forwardStats({"L": "Weak"}, {"I": "Low", "D": "Hard"}))
-    print(network.forwardStats({"D": "Easy"}, {"L": "Strong"}))
-    print(network.forwardStats({"D": "Easy"}, {"L": "Weak"}))
+    print(network.likelihoodStats({"L": "Strong"}))
+    # print(network.forwardStats({"L": "Weak"}, {"I": "Low", "D": "Hard"}))
+    # print(network.forwardStats({"D": "Easy"}, {"L": "Strong"}))
+    # print(network.forwardStats({"D": "Easy"}, {"L": "Weak"}))
 
 
 fromTxt()

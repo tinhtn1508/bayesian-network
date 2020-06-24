@@ -26,9 +26,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         self.__initSamples: int = initializedSamples
         self.__nodeTable: Dict[str, V] = dict()
         self.__topoNodes: Optional[List[Node]] = None
-        self.__forwardSamples: Optional[List[Dict[str, str]]] = None
-        self.__likelihoodSamples: Optional[List[Dict[str, str]]] = None
-        self.__likelihoodOriginalState: Optional[Dict[str, str]] = None
+        self.__samples: Optional[List[Dict[str, str]]] = None
 
     def addNewNode(self, node: Node) -> None:
         if not isinstance(node, Node):
@@ -36,7 +34,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         super().addNewNode(node)
         self.__nodeTable[node.name] = node
 
-    def __forwardGenerateSample(self) -> Dict[str, str]:
+    def __generateSample(self) -> Dict[str, str]:
         state: Dict[str, str] = dict()
         for node in self.__topoNodes:
             sample = node.generateSample(state)
@@ -44,7 +42,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         return state
 
     @timeExecute
-    def forward(self, steps=-1) -> List[Dict[str, str]]:
+    def generateSamples(self, steps=-1) -> List[Dict[str, str]]:
         if len(self.vertexSet()) == 0:
             raise Exception("Graph haven't been initialized!")
         if self.__topoNodes is None:
@@ -54,8 +52,8 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if steps < 0:
             steps = self.__initSamples
         for _ in range(steps):
-            samples.append(self.__forwardGenerateSample())
-        self.__forwardSamples = samples
+            samples.append(self.__generateSample())
+        self.__samples = samples
 
     def __filterSample(self, prob: Dict[str, str], record: Dict[str, str]) -> bool:
         for name, feature in prob.items():
@@ -65,29 +63,26 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
                 return False
         return True
 
-    def __forwardSamplesFilter(
+    def __samplesFiltering(
         self, samples: List[Dict[str, str]], filters: Dict[str, str]
     ) -> Generator[Dict[str, str], None, None]:
         for result in filter(partial(self.__filterSample, filters), samples):
             yield result
 
-    def __forwardNoneConditionStats(
+    def __noneConditionStats(
         self, prob: Dict[str, str], samples: List[Dict[str, str]]
     ) -> float:
         cnt: int = 0
-        for _ in self.__forwardSamplesFilter(samples, prob):
+        for _ in self.__samplesFiltering(samples, prob):
             cnt += 1
         return cnt / len(samples)
 
-    def forwardStats(
-        self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]
-    ) -> float:
+    def __statsCheck(self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]):
         if prob is None:
             raise Exception("No prob is required!!!")
-        if self.__forwardSamples is None or len(self.__forwardSamples) == 0:
-            raise Exception("forward process haven't been run, call forward() first!")
-        if conditions is None:
-            return self.__forwardNoneConditionStats(prob, self.__forwardSamples)
+        if self.__samples is None or len(self.__samples) == 0:
+            self.generateSamples()
+        if conditions is None: return
         for name in prob:
             if name in conditions:
                 raise Exception(
@@ -95,69 +90,45 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
                         name
                     )
                 )
-        return self.__forwardNoneConditionStats(
+
+    def forwardStats(
+        self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]
+    ) -> float:
+        self.__statsCheck(prob, conditions)
+        if conditions is None:
+            return self.__noneConditionStats(prob, self.__samples)
+        return self.__noneConditionStats(
             prob,
             [
                 item
-                for item in self.__forwardSamplesFilter(
-                    self.__forwardSamples, conditions
+                for item in self.__samplesFiltering(
+                    self.__samples, conditions
                 )
             ],
         )
 
-    def __likelihoodSampleWeight(self, sample: Dict[str, str]):
-        w: float = 1.0
-        for conditionName, conditionValue in self.__likelihoodOriginalState.items():
+    def __likelihoodSampleWeight(self, conditions: Dict[str, str], sample: Dict[str, str]):
+        w: float= 1.0
+        for conditionName, conditionValue in conditions.items():
             w *= self.__nodeTable[conditionName].getProbability(sample, conditionValue)
         return sample, w
 
-    def likelihoodStats(self, prob: Dict[str, str]) -> float:
-        if prob is None:
-            raise Exception("No prob is required!!!")
-        if self.__likelihoodSamples is None or len(self.__likelihoodSamples) == 0:
-            raise Exception(
-                "likelihood process haven't been run, call likelihood() first!"
-            )
-        for name in prob:
-            if name in self.__likelihoodOriginalState:
-                raise Exception(
-                    "Invalid input, name {} duplicate in prob and conditions".format(
-                        name
-                    )
-                )
+    def likelihoodStats(
+        self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]
+    ) -> float:
+        self.__statsCheck(prob, conditions)
+        if conditions is None:
+            return self.__noneConditionStats(prob, self.__samples)
 
         totalw: float = 0.0
         conditionw: float = 0.0
-        for sample, w in map(self.__likelihoodSampleWeight, self.__likelihoodSamples):
+        for sample, w in map(
+            partial(self.__likelihoodSampleWeight, conditions),
+            self.__samplesFiltering(self.__samples, conditions)
+        ):
             totalw += w
             if self.__filterSample(prob, sample):
                 conditionw += w
-        return conditionw / totalw
-
-    def __likelihoodGenerateSample(
-        self, originalState: Dict[str, str]
-    ) -> Dict[str, str]:
-        state: Dict[str, str] = deepcopy(originalState)
-        for node in self.__topoNodes:
-            if node.name in state:
-                continue
-            sample: str = node.generateSample(state)
-            state[node.name] = sample
-        return state
-
-    @timeExecute
-    def likelihood(self, originalState: Dict[str, str], steps: int = -1):
-        if originalState is None:
-            raise Exception("expect to have original state!")
-        if len(self.vertexSet()) == 0:
-            raise Exception("Graph haven't been initialized!")
-        if self.__topoNodes is None:
-            topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
-            self.__topoNodes = [node for node in topo.bfs()]
-        self.__likelihoodOriginalState = originalState
-        samples: List[Dict[str, str]] = []
-        if steps < 0:
-            steps = self.__initSamples
-        for _ in range(steps):
-            samples.append(self.__likelihoodGenerateSample(originalState))
-        self.__likelihoodSamples = samples
+        if totalw == 0.0:
+            return 0.0
+        return conditionw/totalw

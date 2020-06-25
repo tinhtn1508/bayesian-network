@@ -10,9 +10,6 @@ from typing import (
     Optional,
 )
 
-np.random.seed(0)
-
-
 class GenerateRandomProbability:
     def __init__(
         self, generator: str = "uniform", ranges: Tuple[int, int] = (0, 1)

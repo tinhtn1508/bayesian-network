@@ -140,7 +140,7 @@ class ConditionalProbability(Probability):
             out = out[i]
         return self._produceDistributionOutput(out)
 
-    def getProbability(self, mNodes: Optional[Dict[str, str]], feature: str) -> float:
+    def getProbability(self, mNodes: Optional[Dict[str, str]], featureName: str) -> float:
         if mNodes is None:
             raise Exception("input None node")
         index: List[int] = []
@@ -152,7 +152,7 @@ class ConditionalProbability(Probability):
         out: np.array = self._cdfTable
         for i in index:
             out = out[i]
-        return out[self._features[feature]]
+        return out[self._features[featureName]]
 
     def generateSample(self, mNodes: Optional[Dict[str, str]]) -> Dict[str, float]:
         if mNodes is None:

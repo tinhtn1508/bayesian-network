@@ -57,16 +57,16 @@ class ModelParser(TxtParser):
         return self.__numOfNodes
 
     def parse(self) -> None:
-        lines = self.readLines()
+        lines: List[str] = self.readLines()
         self.__numOfNodes = int(lines[0])
         if self.__numOfNodes < 2 or self.__numOfNodes > 999:
             raise Exception(
                 "Don't support number of nodes: {}".format(self.__numOfNodes)
             )
-        if self.__numOfNodes != len(lines[1:]):
+        if self.__numOfNodes != (len(lines) - 1):
             raise Exception(
                 "numofnode: {} != len(line): {}".format(
-                    self.__numOfNodes, len(lines[1:])
+                    self.__numOfNodes, len(lines) - 1
                 )
             )
         for line in lines[1:]:
@@ -81,39 +81,39 @@ class TestParser(TxtParser):
     def __init__(self, filePath: str) -> None:
         super().__init__(filePath)
         self.__numOfQueries: int = 0
-        self.__queriesTable: List = list()
+        self.__queriesTable: List[Tuple[Dict[str, str], Dict[str, str]]] = list()
 
     def parse(self) -> None:
-        lines = self.readLines()
-        self.__numOfQueries = int(lines[0])
+        lines: List[str] = self.readLines()
+        self.__numOfQueries: int = int(lines[0])
         if self.__numOfQueries < 1 or self.__numOfQueries > 999:
             raise Exception(
                 "Don't support number of query: {}".format(self.__numOfQueries)
             )
-        if self.__numOfQueries != len(lines[1:]):
+        if self.__numOfQueries != (len(lines) - 1):
             raise Exception(
                 "__numOfQueries: {} != len(line): {}".format(
-                    self.__numOfQueries, len(lines[1:])
+                    self.__numOfQueries, len(lines) - 1
                 )
             )
         for line in lines[1:]:
-            format = line.split(";")
-            inferFormat = format[0]
-            infer = self.__parse(inferFormat)
+            format: List[str] = line.split(";")
+            inferFormat: str = format[0]
+            infer: Dict[str, str] = self.__parse(inferFormat)
 
             if len(format) == 1:
                 self.__queriesTable.append((infer, None))
             else:
-                proof = self.__parse(format[1])
+                proof: Dict[str, str] = self.__parse(format[1])
                 self.__queriesTable.append((infer, proof))
 
-    def __parse(self, lineFormat):
-        format = lineFormat.split(",")
-        output = dict()
+    def __parse(self, lineFormat: str) -> Dict[str, str]:
+        format: List[str] = lineFormat.split(",")
+        output: Dict[str, str] = dict()
         for c in format:
-            featureFormat = c.split("=")
+            featureFormat: List[str] = c.split("=")
             output[featureFormat[0]] = featureFormat[1]
         return output
 
-    def getQueriesTable(self):
+    def getQueriesTable(self) -> List[Tuple[Dict[str, str], Dict[str, str]]]:
         return self.__queriesTable

@@ -98,7 +98,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if prob is None:
             raise Exception("No prob is required!!!")
         if self.__samples is None or len(self.__samples) == 0:
-            self.generateSamples()
+            raise Exception("No sample has been generated, call generateSamples() first")
         if conditions is None:
             return
         for name in prob:

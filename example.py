@@ -80,6 +80,18 @@ def fromTxt():
     print(network.forwardStats({"L": "Weak"}, {"I": "Low", "D": "Hard"}))
     print(network.forwardStats({"D": "Easy"}, {"L": "Strong"}))
     print(network.forwardStats({"D": "Easy"}, {"L": "Weak"}))
+    print(network.forwardStatsBatch(
+            [
+                ({"G": "A"}, None),
+                ({"G": "B"}, None),
+                ({"G": "C"}, None),
+                ({"L": "Strong"}, {"I": "Low", "D": "Hard"}),
+                ({"L": "Weak"}, {"I": "Low", "D": "Hard"}),
+                ({"D": "Easy"}, {"L": "Strong"}),
+                ({"D": "Easy"}, {"L": "Weak"})
+            ]
+        )
+    )
 
     print("========= likelihood =========")
     print(network.likelihoodStats({"G": "A"}, None))
@@ -89,5 +101,17 @@ def fromTxt():
     print(network.likelihoodStats({"L": "Weak"}, {"I": "Low", "D": "Hard"}))
     print(network.likelihoodStats({"D": "Easy"}, {"L": "Strong"}))
     print(network.likelihoodStats({"D": "Easy"}, {"L": "Weak"}))
+    print(network.likelihoodStatsBatch(
+            [
+                ({"G": "A"}, None),
+                ({"G": "B"}, None),
+                ({"G": "C"}, None),
+                ({"L": "Strong"}, {"I": "Low", "D": "Hard"}),
+                ({"L": "Weak"}, {"I": "Low", "D": "Hard"}),
+                ({"D": "Easy"}, {"L": "Strong"}),
+                ({"D": "Easy"}, {"L": "Weak"})
+            ]
+        )
+    )
 
 fromTxt()

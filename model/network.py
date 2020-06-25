@@ -58,7 +58,12 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             steps = self.__initSamples
 
         poolSize: int = cpu_count()
-        taskList: List[Callable[[], Optional[Any]]] = [partial(self.__generateSample, int(steps / poolSize) + 1) for _ in range(poolSize)]
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(
+                self.__generateSample,
+                int(steps/poolSize) + 1
+            )
+        for _ in range(poolSize)]
 
         pool: ThreadPool = ThreadPool(taskList, poolSize)
         pool.startAndWait()
@@ -142,3 +147,29 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if totalw == 0.0:
             return 0.0
         return conditionw / totalw
+
+    def __statsBatch(
+        self,
+        paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
+        statsFunc: Callable[[Dict[str, str], Optional[Dict[str, str]]], float]
+    ) -> List[float]:
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(statsFunc, prob, conditions)
+        for prob, conditions in paramList]
+
+        pool: ThreadPool = ThreadPool(taskList, cpu_count())
+        pool.startAndWait()
+        return pool.result
+
+    @timeExecute
+    def forwardStatsBatch(
+        self,
+        paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
+    ) -> List[float]:
+        return self.__statsBatch(paramList, self.forwardStats)
+
+    @timeExecute
+    def likelihoodStatsBatch(
+        self, paramList: List[Tuple[Dict[str, str], Dict[str, str]]]
+    ) -> List[float]:
+        return self.__statsBatch(paramList, self.likelihoodStats)

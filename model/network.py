@@ -1,8 +1,9 @@
 from graph import UnweightedDirectionAdjacencyMatrix, TopoSortAlgorithm
 from copy import deepcopy
 from .nodes import Node
-from common import timeExecute
+from common import timeExecute, ThreadPool
 from .generator import GenerateRandomProbability
+from multiprocessing import cpu_count
 from functools import partial
 from typing import (
     Dict,
@@ -16,14 +17,8 @@ from typing import (
     Hashable,
     Any,
     Union,
+    Callable,
 )
-import multiprocessing
-import time
-
-
-def workers(n):
-    pass
-
 
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __init__(self, initializedSamples: int = 1000000):
@@ -61,18 +56,20 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         samples: List[Dict[str, str]] = []
         if steps < 0:
             steps = self.__initSamples
-        global workers
 
-        def workers(nSamples):
-            return self.__generateSample(nSamples)
+        poolSize: int = cpu_count()
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(
+                self.__generateSample,
+                int(steps/poolSize) + 1
+            )
+        for _ in range(poolSize)]
 
-        numPool = multiprocessing.cpu_count()
-        samplesList = [int(steps / numPool) + 1 for _ in range(numPool)]
-
-        pool = multiprocessing.Pool(processes=numPool)
-        outputs = pool.map(workers, samplesList)
-        for i in outputs:
-            samples += i
+        pool: ThreadPool = ThreadPool(taskList, poolSize)
+        pool.startAndWait()
+        outputs: List[List[Dict[str, str]]] = pool.result
+        for output in outputs:
+            samples.extend(output)
         self.__samples = samples
 
     def __filterSample(self, prob: Dict[str, str], record: Dict[str, str]) -> bool:
@@ -150,3 +147,29 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if totalw == 0.0:
             return 0.0
         return conditionw / totalw
+
+    def __statsBatch(
+        self,
+        paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
+        statsFunc: Callable[[Dict[str, str], Optional[Dict[str, str]]], float]
+    ) -> List[float]:
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(statsFunc, prob, conditions)
+        for prob, conditions in paramList]
+
+        pool: ThreadPool = ThreadPool(taskList, cpu_count())
+        pool.startAndWait()
+        return pool.result
+
+    @timeExecute
+    def forwardStatsBatch(
+        self,
+        paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
+    ) -> List[float]:
+        return self.__statsBatch(paramList, self.forwardStats)
+
+    @timeExecute
+    def likelihoodStatsBatch(
+        self, paramList: List[Tuple[Dict[str, str], Dict[str, str]]]
+    ) -> List[float]:
+        return self.__statsBatch(paramList, self.likelihoodStats)

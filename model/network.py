@@ -20,6 +20,7 @@ from typing import (
     Callable,
 )
 
+
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __init__(self, initializedSamples: int = 1000000):
         super().__init__(None)
@@ -35,7 +36,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         super().addNewNode(node)
         self.__nodeTable[node.name] = node
 
-    @timeExecute
+    # @timeExecute
     def __generateSample(self, nSamples: int) -> Dict[str, str]:
         samples = []
         for _ in range(nSamples):
@@ -46,7 +47,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             samples.append(state)
         return samples
 
-    @timeExecute
+    # @timeExecute
     def generateSamples(self, steps=-1) -> List[Dict[str, str]]:
         if len(self.vertexSet()) == 0:
             raise Exception("Graph haven't been initialized!")
@@ -59,11 +60,9 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
 
         poolSize: int = cpu_count()
         taskList: List[Callable[[], Optional[Any]]] = [
-            partial(
-                self.__generateSample,
-                int(steps/poolSize) + 1
-            )
-        for _ in range(poolSize)]
+            partial(self.__generateSample, int(steps / poolSize) + 1)
+            for _ in range(poolSize)
+        ]
 
         pool: ThreadPool = ThreadPool(taskList, poolSize)
         pool.startAndWait()
@@ -98,7 +97,9 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         if prob is None:
             raise Exception("No prob is required!!!")
         if self.__samples is None or len(self.__samples) == 0:
-            raise Exception("No sample has been generated, call generateSamples() first")
+            raise Exception(
+                "No sample has been generated, call generateSamples() first"
+            )
         if conditions is None:
             return
         for name in prob:
@@ -151,24 +152,23 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __statsBatch(
         self,
         paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
-        statsFunc: Callable[[Dict[str, str], Optional[Dict[str, str]]], float]
+        statsFunc: Callable[[Dict[str, str], Optional[Dict[str, str]]], float],
     ) -> List[float]:
         taskList: List[Callable[[], Optional[Any]]] = [
-            partial(statsFunc, prob, conditions)
-        for prob, conditions in paramList]
+            partial(statsFunc, prob, conditions) for prob, conditions in paramList
+        ]
 
         pool: ThreadPool = ThreadPool(taskList, cpu_count())
         pool.startAndWait()
         return pool.result
 
-    @timeExecute
+    # @timeExecute
     def forwardStatsBatch(
-        self,
-        paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
+        self, paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
     ) -> List[float]:
         return self.__statsBatch(paramList, self.forwardStats)
 
-    @timeExecute
+    # @timeExecute
     def likelihoodStatsBatch(
         self, paramList: List[Tuple[Dict[str, str], Dict[str, str]]]
     ) -> List[float]:

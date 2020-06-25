@@ -24,7 +24,7 @@ class DistributionTest(unittest.TestCase):
 
     def testDiscreteDistributionGet(self) -> None:
         P = DiscreteDistribution("D", [0.6, 0.4], (1, 2), ["Easy", "Hard"])
-        actual = P.getProbability()
+        actual = P.getDistribution()
         expected = {"Easy": 0.6, "Hard": 0.4}
         self.assertEqual(actual, expected)
 
@@ -34,13 +34,13 @@ class DistributionTest(unittest.TestCase):
         )
         PL.setConditionalFeatures({"G": ["A", "B", "C"]})
 
-        actual = PL.getProbability({"G": "A"})
+        actual = PL.getDistribution({"G": "A"})
         expected = {"Weak": 0.1, "Strong": 0.9}
         self.assertEqual(actual, expected)
-        actual = PL.getProbability({"G": "B"})
+        actual = PL.getDistribution({"G": "B"})
         expected = {"Weak": 0.4, "Strong": 0.6}
         self.assertEqual(actual, expected)
-        actual = PL.getProbability({"G": "C"})
+        actual = PL.getDistribution({"G": "C"})
         expected = {"Weak": 0.99, "Strong": 0.01}
         self.assertEqual(actual, expected)
 

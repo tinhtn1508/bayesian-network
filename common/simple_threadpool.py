@@ -1,6 +1,7 @@
 from threading import Lock
 import multiprocessing
 from multiprocessing import Pool
+from numpy.random import seed
 from typing import (
     Tuple,
     Optional,
@@ -39,6 +40,7 @@ class ThreadPool():
 
             global handler
             def handler(index: int) -> Tuple[int, Optional[Any]]:
+                seed(index)
                 return index, self.__taskList[index]()
 
             with Pool(processes = self.__nthreads) as pool:

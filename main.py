@@ -21,17 +21,8 @@ class BayesianNetworkRunner:
         if err is not None:
             print(err)
             exit()
-        self.__network: BayesianNetwork = self.__produceNetwork(modelFile)
+        self.__network: BayesianNetwork = self.__produceNetwork(modelFile, algorithm)
         self.__queries: List[Tuple[Dict[str, str], Dict[str, str]]] = self.__produceQuery(testFile)
-        self.__statsFunc: Callable[
-                [List[Tuple[Dict[str, str], Dict[str, str]]]],
-                List[float]
-                ] = self.__network.forwardStatsBatch
-        if algorithm == "likelihood":
-            self.__statsFunc = self.__network.likelihoodStatsBatch
-        elif algorithm == "gibbs":
-            pass
-            # TODO
         self.__output = TxtParser(output)
 
     def __checkArguments(self, model: str, test: str, algorithm: str, output: str) -> Optional[str]:
@@ -45,12 +36,12 @@ class BayesianNetworkRunner:
             return "[ERROR] Invalid output path: {}".format(output)
         return None
 
-    def __produceNetwork(self, model: str) -> BayesianNetwork:
+    def __produceNetwork(self, model: str, algorithm: str) -> BayesianNetwork:
         parser: ModelParser = ModelParser(model)
         parser.parse()
 
         nodes: Dict[str, Node] = parser.getNodes()
-        network: BayesianNetwork = BayesianNetwork()
+        network: BayesianNetwork = BayesianNetwork.factory(algorithm)
         for name, node in nodes.items():
             if not node.isCondition():
                 continue
@@ -70,8 +61,7 @@ class BayesianNetworkRunner:
         return parser.getQueriesTable()
 
     def run(self):
-        self.__network.generateSamples()
-        result: List[float] = self.__statsFunc(self.__queries)
+        result: List[float] = self.__network.allBatchJobs(self.__queries)
         self.__output.writeLines([s for s in map(str, result)])
 
 def main() -> None:

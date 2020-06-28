@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import random
 from typing import (
     Any,
     TypeVar,
@@ -9,6 +10,7 @@ from typing import (
     Tuple,
     Optional,
 )
+
 
 class GenerateRandomProbability:
     def __init__(
@@ -45,7 +47,7 @@ class GenerateRandomProbability:
     def oneSample(self) -> Hashable:
         if self.__cdfDistribution is None:
             raise Exception("Please use the fit method before generating")
-        rnd: float = np.random.uniform(self.__ranges[0], self.__ranges[1], 1)[0]
+        rnd: float = random.uniform(self.__ranges[0], self.__ranges[1])
         for feature, pro in self.__cdfDistribution.items():
             if rnd <= pro:
                 return feature
@@ -64,9 +66,7 @@ class GenerateRandomProbability:
 
     def __samples(self) -> np.array:
         if self.__generatorType == "uniform":
-            return np.random.uniform(
-                self.__ranges[0], self.__ranges[1], self.__nSamples
-            )
+            return random.uniform(self.__ranges[0], self.__ranges[1])
         else:
             raise Exception(
                 "Do not support generator type: {}".format(self.__generatorType)
@@ -82,7 +82,7 @@ class GenerateRandomProbability:
 def generateOneSample(cdf: np.array):
     if cdf is None:
         raise Exception("CDF is None")
-    rnd: float = np.random.uniform(0, 1, 1)[0]
+    rnd: float = random.uniform(0, 1)
     for i, pro in enumerate(cdf):
         if rnd <= pro:
             return i

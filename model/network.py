@@ -20,6 +20,7 @@ from typing import (
     Callable,
 )
 
+
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __init__(self, initializedSamples):
         super().__init__(None)

@@ -6,6 +6,7 @@ from .generator import GenerateRandomProbability
 from multiprocessing import cpu_count
 from functools import partial
 from random import seed
+import time
 from typing import (
     Dict,
     Optional,
@@ -21,6 +22,8 @@ from typing import (
     Callable,
 )
 
+LIMITED_SAMPLES = 2 * 10 ** 7
+
 
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def __init__(self, initializedSamples: int):
@@ -31,7 +34,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         self._topoNodes: Optional[List[Node]] = None
 
     @classmethod
-    def factory(cls, algorithm: str, initializedSamples: int = 1000000) -> Any:
+    def factory(cls, algorithm: str, initializedSamples: int = LIMITED_SAMPLES) -> Any:
         if algorithm == "forward":
             return ForwardBayesianNetwork(initializedSamples)
         elif algorithm == "likelihood":
@@ -46,9 +49,10 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         super().addNewNode(node)
         self._nodeTable[node.name] = node
 
-    def batchQuery(self,
+    def batchQuery(
+        self,
         paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
-        steps: int = -1
+        steps: int = -1,
     ) -> List[float]:
         pass
 
@@ -59,7 +63,9 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
             self._topoNodes = [node for node in topo.bfs()]
 
-    def _generateSample(self, originalState: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+    def _generateSample(
+        self, originalState: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
         state: Optional[Dict[str, str]] = originalState
         if state is None:
             state = dict()
@@ -71,15 +77,22 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
             state[node.name] = node.generateSample(state)
         return state
 
-    def _generateSamples(self,
+    def _generateSamples(
+        self,
         nSamples: int,
-        originalState: Optional[Dict[str, str]] = None
+        originalState: Optional[Dict[str, str]] = None,
+        durationTime: int = 90,
     ) -> List[Dict[str, str]]:
         if nSamples < 1:
             raise Exception("number of samples cannot < 1")
         samples = []
-        for _ in range(nSamples):
+        start = time.time()
+        for i in range(nSamples):
             samples.append(self._generateSample(originalState))
+            if i % 1000 == 0:
+                duration = time.time() - start
+                if duration > durationTime:
+                    break
         return samples
 
     def _filterSample(self, prob: Dict[str, str], record: Dict[str, str]) -> bool:
@@ -110,7 +123,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         self, prob: Dict[str, str], samples: List[Dict[str, str]]
     ) -> float:
         cnt, total = self._noneConditionStatsSample(prob, samples)
-        return cnt/total
+        return cnt / total
 
     def _statsCheck(self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]):
         if prob is None:
@@ -125,28 +138,33 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
                     )
                 )
 
+
 class ForwardBayesianNetwork(BayesianNetwork):
-    def __generateAndQuery(self,
+    def __generateAndQuery(
+        self,
         steps: int,
         paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
-        index: int
+        index: int,
     ) -> List[Tuple[int, int]]:
         seed(index)
         result: List[Tuple[int, int]] = list()
         samples: List[Dict[str, str]] = self._generateSamples(steps)
+        print(len(samples))
         for prob, conditions in paramList:
             self._statsCheck(prob, conditions)
             if conditions is None:
                 result.append(self._noneConditionStatsSample(prob, samples))
             else:
-                result.append(self._noneConditionStatsSample(
-                    prob,
-                    [item for item in self._filterSamples(samples, conditions)],
-                ))
+                result.append(
+                    self._noneConditionStatsSample(
+                        prob,
+                        [item for item in self._filterSamples(samples, conditions)],
+                    )
+                )
         return result
 
-    def __convertBatchJobResults(self,
-        batchJobResults: List[List[Tuple[int, int]]]
+    def __convertBatchJobResults(
+        self, batchJobResults: List[List[Tuple[int, int]]]
     ) -> List[float]:
         if batchJobResults is None or len(batchJobResults) < 1:
             raise Exception("invalid batch job results")
@@ -157,12 +175,13 @@ class ForwardBayesianNetwork(BayesianNetwork):
             for lst in batchJobResults:
                 filtered += lst[i][0]
                 total += lst[i][1]
-            result[i] = filtered/total if total != 0 else 0.0
+            result[i] = filtered / total if total != 0 else 0.0
         return result
 
-    def batchQuery(self,
+    def batchQuery(
+        self,
         paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
-        steps: int = -1
+        steps: int = -1,
     ) -> List[float]:
         if paramList is None or len(paramList) < 1:
             raise Exception("invalid query params")
@@ -172,13 +191,14 @@ class ForwardBayesianNetwork(BayesianNetwork):
 
         poolSize: int = cpu_count() - 1
         taskList: List[Callable[[], Optional[Any]]] = [
-            partial(self.__generateAndQuery, int(steps/poolSize) + 1, paramList, i)
-        for i in range(poolSize)]
+            partial(self.__generateAndQuery, int(steps / poolSize) + 1, paramList, i)
+            for i in range(poolSize)
+        ]
 
         pool: ThreadPool = ThreadPool(taskList, poolSize)
         pool.startAndWait()
-
         return self.__convertBatchJobResults(pool.result)
+
 
 class LikelihoodBayesianNetwork(BayesianNetwork):
     def __buildConditionalKey(self, condition: Optional[Dict[str, str]]) -> str:
@@ -187,11 +207,11 @@ class LikelihoodBayesianNetwork(BayesianNetwork):
         keyList: List[str] = sorted(condition.keys())
         conditionKey: List[str] = list()
         for k in keyList:
-            conditionKey.append(k + ':' + condition[k])
-        return ';'.join(conditionKey)
+            conditionKey.append(k + ":" + condition[k])
+        return ";".join(conditionKey)
 
-    def __doParamListIndexing(self,
-        paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]]
+    def __doParamListIndexing(
+        self, paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]]
     ) -> Dict[str, List[int]]:
         index: Dict[str, List[int]] = dict()
         for i, param in enumerate(paramList):
@@ -210,10 +230,11 @@ class LikelihoodBayesianNetwork(BayesianNetwork):
             w *= self._nodeTable[conditionName].getProbability(sample, conditionValue)
         return sample, w
 
-    def __calculateLikelihoodProbability(self,
+    def __calculateLikelihoodProbability(
+        self,
         condition: Dict[str, str],
         prob: Dict[str, str],
-        samples: List[Dict[str, str]]
+        samples: List[Dict[str, str]],
     ) -> float:
         if prob is None:
             raise Exception("input None condition or prob")
@@ -223,55 +244,79 @@ class LikelihoodBayesianNetwork(BayesianNetwork):
             return self._noneConditionStats(prob, samples)
         totalw: float = 0.0
         condw: float = 0.0
-        for sample, w in map(partial(self.__likelihoodSampleWeight, condition), samples):
+        for sample, w in map(
+            partial(self.__likelihoodSampleWeight, condition), samples
+        ):
             totalw += w
             if self._filterSample(prob, sample):
                 condw += w
-        return condw/totalw if totalw != 0.0 else 0.0
+        return condw / totalw if totalw != 0.0 else 0.0
 
-    def __generateAndQuery(self,
+    def __generateAndQuery(
+        self,
         nSamples: int,
+        limitTime: int,
         conditionList: List[Optional[Dict[str, str]]],
         probList: List[Dict[str, str]],
-        indexList: List[int]
+        indexList: List[int],
     ) -> List[float]:
         seed(indexList[0])
         result: List[float] = [0.0 for _ in range(len(probList))]
         condition = conditionList[indexList[0]]
-        samples: List[Dict[str, str]] = self._generateSamples(nSamples, condition)
+        samples: List[Dict[str, str]] = self._generateSamples(
+            nSamples, condition, limitTime
+        )
+
         for i in indexList:
             prob: Dict[str, str] = probList[i]
             self._statsCheck(prob, condition)
             result[i] = self.__calculateLikelihoodProbability(condition, prob, samples)
         return result
 
-    def __convertBatchJobResults(self, batchJobResults: List[List[float]]) -> List[float]:
+    def __convertBatchJobResults(
+        self, batchJobResults: List[List[float]]
+    ) -> List[float]:
         result: List[float] = [0.0 for _ in range(len(batchJobResults[0]))]
         for i in range(len(result)):
             for subresult in batchJobResults:
                 result[i] += subresult[i]
         return result
 
-    def batchQuery(self,
+    def batchQuery(
+        self,
         paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
-        steps: int = -1
+        steps: int = -1,
     ) -> List[float]:
         self._prepare()
         if steps <= 0:
             steps = self._initSamples
 
         indexTable: Dict[str, List[int]] = self.__doParamListIndexing(paramList)
-        probList: List[Dict[str, str]] = [
-            param[0] for param in paramList
-        ]
+        probList: List[Dict[str, str]] = [param[0] for param in paramList]
         conditionList: List[Optional[Dict[str, str]]] = [
             param[1] for param in paramList
         ]
 
-        poolSize: int = cpu_count() - 1
+        sizeIndexTable: int = len(indexTable)
+        poolSize: int = min(cpu_count() - 1, sizeIndexTable)
+        stepsTable: int = min(2 * 10 ** 6, int(LIMITED_SAMPLES / poolSize))
+        numsTimeSlice = (
+            int(sizeIndexTable / (cpu_count()) - 1) + 1
+            if sizeIndexTable % (cpu_count() - 1)
+            else int(sizeIndexTable / (cpu_count() - 1))
+        )
+        limitTimeSlice = int(90 / numsTimeSlice)
         taskList: List[Callable[[], Optional[Any]]] = [
-            partial(self.__generateAndQuery, steps, conditionList, probList, indexList)
-        for _, indexList in indexTable.items()]
+            partial(
+                self.__generateAndQuery,
+                stepsTable,
+                limitTimeSlice,
+                conditionList,
+                probList,
+                indexList,
+            )
+            for _, indexList in indexTable.items()
+        ]
         pool: ThreadPool = ThreadPool(taskList, poolSize)
         pool.startAndWait()
 

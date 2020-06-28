@@ -5,6 +5,7 @@ from common import timeExecute, ThreadPool
 from .generator import GenerateRandomProbability
 from multiprocessing import cpu_count
 from functools import partial
+from random import seed
 from typing import (
     Dict,
     Optional,
@@ -22,7 +23,7 @@ from typing import (
 
 
 class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
-    def __init__(self, initializedSamples):
+    def __init__(self, initializedSamples: int):
         super().__init__(None)
         self._generator: GenerateRandomProbability = GenerateRandomProbability()
         self._initSamples: int = initializedSamples
@@ -30,7 +31,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         self._topoNodes: Optional[List[Node]] = None
 
     @classmethod
-    def factory(cls, algorithm: str, initializedSamples: int = 100000):
+    def factory(cls, algorithm: str, initializedSamples: int = 1000000) -> Any:
         if algorithm == "forward":
             return ForwardBayesianNetwork(initializedSamples)
         elif algorithm == "likelihood":
@@ -40,6 +41,8 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def addNewNode(self, node: Node) -> None:
         if not isinstance(node, Node):
             raise Exception("input object is not a Node")
+        if node is None:
+            raise Exception("cannot add None node")
         super().addNewNode(node)
         self._nodeTable[node.name] = node
 
@@ -48,6 +51,13 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         steps: int = -1
     ) -> List[float]:
         pass
+
+    def _prepare(self) -> None:
+        if len(self.vertexSet()) == 0:
+            raise Exception("Graph haven't been initialized!")
+        if self._topoNodes is None:
+            topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
+            self._topoNodes = [node for node in topo.bfs()]
 
     def _generateSample(self, originalState: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         state: Optional[Dict[str, str]] = originalState
@@ -65,6 +75,8 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
         nSamples: int,
         originalState: Optional[Dict[str, str]] = None
     ) -> List[Dict[str, str]]:
+        if nSamples < 1:
+            raise Exception("number of samples cannot < 1")
         samples = []
         for _ in range(nSamples):
             samples.append(self._generateSample(originalState))
@@ -78,7 +90,7 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
                 return False
         return True
 
-    def _samplesFiltering(
+    def _filterSamples(
         self, samples: List[Dict[str, str]], filters: Dict[str, str]
     ) -> Generator[Dict[str, str], None, None]:
         for result in filter(partial(self._filterSample, filters), samples):
@@ -87,18 +99,22 @@ class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
     def _noneConditionStatsSample(
         self, prob: Dict[str, str], samples: List[Dict[str, str]]
     ) -> Tuple[int, int]:
+        if len(samples) == 0:
+            raise Exception("input no sample!")
         cnt: int = 0
-        for _ in self._samplesFiltering(samples, prob):
+        for _ in self._filterSamples(samples, prob):
             cnt += 1
         return (cnt, len(samples))
 
-class ForwardBayesianNetwork(BayesianNetwork):
-    def __init__(self, initializedSamples: int = 1000000):
-        super().__init__(initializedSamples)
+    def _noneConditionStats(
+        self, prob: Dict[str, str], samples: List[Dict[str, str]]
+    ) -> float:
+        cnt, total = self._noneConditionStatsSample(prob, samples)
+        return cnt/total
 
-    def __statsCheck(self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]):
+    def _statsCheck(self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]):
         if prob is None:
-            raise Exception("No prob is required!!!")
+            raise Exception("input None prob!!!")
         if conditions is None:
             return
         for name in prob:
@@ -109,265 +125,154 @@ class ForwardBayesianNetwork(BayesianNetwork):
                     )
                 )
 
-    def __doFullJobs(self,
+class ForwardBayesianNetwork(BayesianNetwork):
+    def __generateAndQuery(self,
         steps: int,
         paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
         index: int
     ) -> List[Tuple[int, int]]:
+        seed(index)
         result: List[Tuple[int, int]] = list()
         samples: List[Dict[str, str]] = self._generateSamples(steps)
         for prob, conditions in paramList:
-            self.__statsCheck(prob, conditions)
+            self._statsCheck(prob, conditions)
             if conditions is None:
                 result.append(self._noneConditionStatsSample(prob, samples))
             else:
                 result.append(self._noneConditionStatsSample(
                     prob,
-                    [item for item in self._samplesFiltering(samples, conditions)],
+                    [item for item in self._filterSamples(samples, conditions)],
                 ))
         return result
 
-    def batchQuery(self,
-        paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
-        steps: int = -1
+    def __convertBatchJobResults(self,
+        batchJobResults: List[List[Tuple[int, int]]]
     ) -> List[float]:
-        if len(self.vertexSet()) == 0:
-            raise Exception("Graph haven't been initialized!")
-        if self._topoNodes is None:
-            topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
-            self._topoNodes = [node for node in topo.bfs()]
-        if steps < 0:
-            steps = self._initSamples
-
-        poolSize: int = cpu_count()
-        taskList: List[Callable[[], Optional[Any]]] = [
-            partial(self.__doFullJobs, int(steps/poolSize) + 1, paramList, i)
-        for i in range(poolSize)]
-
-        pool: ThreadPool = ThreadPool(taskList, poolSize)
-        pool.startAndWait()
-        batchJobResults: List[List[Tuple[int, int]]] = pool.result
-
-        result: List[float] = [0.0 for _ in range(len(paramList))]
+        if batchJobResults is None or len(batchJobResults) < 1:
+            raise Exception("invalid batch job results")
+        result: List[float] = [0.0 for _ in range(len(batchJobResults[0]))]
         for i in range(len(result)):
             total: int = 0
             filtered: int = 0
             for lst in batchJobResults:
                 filtered += lst[i][0]
                 total += lst[i][1]
-            result[i] = filtered/total if total != 0 else 0
+            result[i] = filtered/total if total != 0 else 0.0
         return result
 
-# class LikelihoodBayesianNetwork(BayesianNetwork):
-#     def __init__(self, initializedSamples: int = 1000000):
-#         super().__init__(initializedSamples)
-#         self.__samplesTable: Optional[str, Dict[List[Dict[str, str]]]] = None
+    def batchQuery(self,
+        paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
+        steps: int = -1
+    ) -> List[float]:
+        if paramList is None or len(paramList) < 1:
+            raise Exception("invalid query params")
+        self._prepare()
+        if steps <= 0:
+            steps = self._initSamples
 
-#     def __buildConditionalKey(self, condition: Optional[Dict[str, str]]) -> str:
-#         if condition is None:
-#             return "standard"
-#         keyList: List[str] = sorted(condition.keys())
-#         conditionKey: List[str] = []
-#         for k in keyList:
-#             conditionKey.append(k + ':' + condition[k])
-#         return ';'.join(conditionKey)
+        poolSize: int = cpu_count() - 1
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(self.__generateAndQuery, int(steps/poolSize) + 1, paramList, i)
+        for i in range(poolSize)]
 
-#     def __likelihoodGenerateSample(self, originalState: Dict[str, str]) -> Dict[str, str]:
-#         state: Dict[str, str] = deepcopy(originalState)
-#         for node in self.__topoNodes:
-#             if node.name in state:
-#                 continue
-#             sample: str = node.generateSample(state)
-#             state[node.name] = sample
-#         return state
+        pool: ThreadPool = ThreadPool(taskList, poolSize)
+        pool.startAndWait()
 
-#     # def __generateConditionalSamples(self,
-#     #     nSamples: int,
-#     #     condition: Dict[str, str]
-#     # ) -> List[Dict[str, str]]:
+        return self.__convertBatchJobResults(pool.result)
 
+class LikelihoodBayesianNetwork(BayesianNetwork):
+    def __buildConditionalKey(self, condition: Optional[Dict[str, str]]) -> str:
+        if condition is None:
+            return "standard"
+        keyList: List[str] = sorted(condition.keys())
+        conditionKey: List[str] = list()
+        for k in keyList:
+            conditionKey.append(k + ':' + condition[k])
+        return ';'.join(conditionKey)
 
-#     def __prepareSampleTable(self,
-#         steps: int,
-#         parallel: bool,
-#         conditions: Optional[List[Dict[str, str]]]
-#     ) -> None:
-#         if conditions is None or len(conditions) == 0:
-#             self.__samplesTable["standard"] = self._generateSamplesParallel(steps)
-#             return
-#         conditionTable: Dict[str, Dict[str, str]] = dict()
-#         for condition in conditions:
-#             conditionKey: str = self.__buildConditionalKey(condition)
-#             if conditionKey not in conditionTable:
-#                 conditionTable[conditionKey] = condition
-#         for conditionKey, condition in conditionTable:
+    def __doParamListIndexing(self,
+        paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]]
+    ) -> Dict[str, List[int]]:
+        index: Dict[str, List[int]] = dict()
+        for i, param in enumerate(paramList):
+            key: str = self.__buildConditionalKey(param[1])
+            if key not in index:
+                index[key] = [i]
+            else:
+                index[key].append(i)
+        return index
 
+    def __likelihoodSampleWeight(
+        self, condition: Dict[str, str], sample: Dict[str, str]
+    ):
+        w: float = 1.0
+        for conditionName, conditionValue in condition.items():
+            w *= self._nodeTable[conditionName].getProbability(sample, conditionValue)
+        return sample, w
 
+    def __calculateLikelihoodProbability(self,
+        condition: Dict[str, str],
+        prob: Dict[str, str],
+        samples: List[Dict[str, str]]
+    ) -> float:
+        if prob is None:
+            raise Exception("input None condition or prob")
+        if samples is None or len(samples) <= 1:
+            raise Exception("no input sample found")
+        if condition is None:
+            return self._noneConditionStats(prob, samples)
+        totalw: float = 0.0
+        condw: float = 0.0
+        for sample, w in map(partial(self.__likelihoodSampleWeight, condition), samples):
+            totalw += w
+            if self._filterSample(prob, sample):
+                condw += w
+        return condw/totalw if totalw != 0.0 else 0.0
 
-#     def generateSamples(self,
-#             steps: int = -1,
-#             parallel = True,
-#             preConditions: Optional[List[Dict[str, str]]] = None
-#         ) -> List[Dict[str, str]]:
-#         if len(self.vertexSet()) == 0:
-#             raise Exception("Graph haven't been initialized!")
-#         if self._topoNodes is None:
-#             topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
-#             self._topoNodes = [node for node in topo.bfs()]
-#         if steps < 0:
-#             steps = self._initSamples
-#         self.__prepareSampleTable(steps, parallel, preConditions)
+    def __generateAndQuery(self,
+        nSamples: int,
+        conditionList: List[Optional[Dict[str, str]]],
+        probList: List[Dict[str, str]],
+        indexList: List[int]
+    ) -> List[float]:
+        seed(indexList[0])
+        result: List[float] = [0.0 for _ in range(len(probList))]
+        condition = conditionList[indexList[0]]
+        samples: List[Dict[str, str]] = self._generateSamples(nSamples, condition)
+        for i in indexList:
+            prob: Dict[str, str] = probList[i]
+            self._statsCheck(prob, condition)
+            result[i] = self.__calculateLikelihoodProbability(condition, prob, samples)
+        return result
 
-# class BayesianNetwork(UnweightedDirectionAdjacencyMatrix):
-#     def __init__(self, initializedSamples: int = 1000000):
-#         super().__init__(None)
-#         self.__generator: GenerateRandomProbability = GenerateRandomProbability()
-#         self.__initSamples: int = initializedSamples
-#         self.__nodeTable: Dict[str, V] = dict()
-#         self.__topoNodes: Optional[List[Node]] = None
-#         self.__samples: Optional[List[Dict[str, str]]] = None
+    def __convertBatchJobResults(self, batchJobResults: List[List[float]]) -> List[float]:
+        result: List[float] = [0.0 for _ in range(len(batchJobResults[0]))]
+        for i in range(len(result)):
+            for subresult in batchJobResults:
+                result[i] += subresult[i]
+        return result
 
-#     def addNewNode(self, node: Node) -> None:
-#         if not isinstance(node, Node):
-#             raise Exception("input object is not a Node")
-#         super().addNewNode(node)
-#         self.__nodeTable[node.name] = node
+    def batchQuery(self,
+        paramList: List[Tuple[Dict[str, str], Optional[Dict[str, str]]]],
+        steps: int = -1
+    ) -> List[float]:
+        self._prepare()
+        if steps <= 0:
+            steps = self._initSamples
 
-#     @timeExecute
-#     def __generateSample(self, nSamples: int) -> Dict[str, str]:
-#         samples = []
-#         for _ in range(nSamples):
-#             state: Dict[str, str] = dict()
-#             for node in self.__topoNodes:
-#                 sample = node.generateSample(state)
-#                 state[node.name] = sample
-#             samples.append(state)
-#         return samples
+        indexTable: Dict[str, List[int]] = self.__doParamListIndexing(paramList)
+        probList: List[Dict[str, str]] = [
+            param[0] for param in paramList
+        ]
+        conditionList: List[Optional[Dict[str, str]]] = [
+            param[1] for param in paramList
+        ]
 
-#     @timeExecute
-#     def generateSamples(self, steps=-1) -> List[Dict[str, str]]:
-#         if len(self.vertexSet()) == 0:
-#             raise Exception("Graph haven't been initialized!")
-#         if self.__topoNodes is None:
-#             topo: TopoSortAlgorithm = TopoSortAlgorithm(self)
-#             self.__topoNodes = [node for node in topo.bfs()]
-#         samples: List[Dict[str, str]] = []
-#         if steps < 0:
-#             steps = self.__initSamples
+        poolSize: int = cpu_count() - 1
+        taskList: List[Callable[[], Optional[Any]]] = [
+            partial(self.__generateAndQuery, steps, conditionList, probList, indexList)
+        for _, indexList in indexTable.items()]
+        pool: ThreadPool = ThreadPool(taskList, poolSize)
+        pool.startAndWait()
 
-#         poolSize: int = cpu_count()
-#         taskList: List[Callable[[], Optional[Any]]] = [
-#             partial(
-#                 self.__generateSample,
-#                 int(steps/poolSize) + 1
-#             )
-#         for _ in range(poolSize)]
-
-#         pool: ThreadPool = ThreadPool(taskList, poolSize)
-#         pool.startAndWait()
-#         outputs: List[List[Dict[str, str]]] = pool.result
-#         for output in outputs:
-#             samples.extend(output)
-#         self.__samples = samples
-
-#     def __filterSample(self, prob: Dict[str, str], record: Dict[str, str]) -> bool:
-#         for name, feature in prob.items():
-#             if name not in record:
-#                 raise Exception("Failed to get item {} in the record".format(name))
-#             if feature != record[name]:
-#                 return False
-#         return True
-
-#     def __samplesFiltering(
-#         self, samples: List[Dict[str, str]], filters: Dict[str, str]
-#     ) -> Generator[Dict[str, str], None, None]:
-#         for result in filter(partial(self.__filterSample, filters), samples):
-#             yield result
-
-#     def __noneConditionStats(
-#         self, prob: Dict[str, str], samples: List[Dict[str, str]]
-#     ) -> float:
-#         cnt: int = 0
-#         for _ in self.__samplesFiltering(samples, prob):
-#             cnt += 1
-#         return cnt / len(samples)
-
-#     def __statsCheck(self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]):
-#         if prob is None:
-#             raise Exception("No prob is required!!!")
-#         if self.__samples is None or len(self.__samples) == 0:
-#             raise Exception("No sample has been generated, call generateSamples() first")
-#         if conditions is None:
-#             return
-#         for name in prob:
-#             if name in conditions:
-#                 raise Exception(
-#                     "Invalid input, name {} duplicate in prob and conditions".format(
-#                         name
-#                     )
-#                 )
-
-#     def forwardStats(
-#         self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]
-#     ) -> float:
-#         self.__statsCheck(prob, conditions)
-#         if conditions is None:
-#             return self.__noneConditionStats(prob, self.__samples)
-#         return self.__noneConditionStats(
-#             prob,
-#             [item for item in self.__samplesFiltering(self.__samples, conditions)],
-#         )
-
-#     def __likelihoodSampleWeight(
-#         self, conditions: Dict[str, str], sample: Dict[str, str]
-#     ):
-#         w: float = 1.0
-#         for conditionName, conditionValue in conditions.items():
-#             w *= self.__nodeTable[conditionName].getProbability(sample, conditionValue)
-#         return sample, w
-
-#     def likelihoodStats(
-#         self, prob: Dict[str, str], conditions: Optional[Dict[str, str]]
-#     ) -> float:
-#         self.__statsCheck(prob, conditions)
-#         if conditions is None:
-#             return self.__noneConditionStats(prob, self.__samples)
-
-#         totalw: float = 0.0
-#         conditionw: float = 0.0
-#         for sample, w in map(
-#             partial(self.__likelihoodSampleWeight, conditions),
-#             self.__samplesFiltering(self.__samples, conditions),
-#         ):
-#             totalw += w
-#             if self.__filterSample(prob, sample):
-#                 conditionw += w
-#         if totalw == 0.0:
-#             return 0.0
-#         return conditionw / totalw
-
-#     def __statsBatch(
-#         self,
-#         paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
-#         statsFunc: Callable[[Dict[str, str], Optional[Dict[str, str]]], float]
-#     ) -> List[float]:
-#         taskList: List[Callable[[], Optional[Any]]] = [
-#             partial(statsFunc, prob, conditions)
-#         for prob, conditions in paramList]
-
-#         pool: ThreadPool = ThreadPool(taskList, cpu_count())
-#         pool.startAndWait()
-#         return pool.result
-
-#     @timeExecute
-#     def forwardStatsBatch(
-#         self,
-#         paramList: List[Tuple[Dict[str, str], Dict[str, str]]],
-#     ) -> List[float]:
-#         return self.__statsBatch(paramList, self.forwardStats)
-
-#     @timeExecute
-#     def likelihoodStatsBatch(
-#         self, paramList: List[Tuple[Dict[str, str], Dict[str, str]]]
-#     ) -> List[float]:
-#         return self.__statsBatch(paramList, self.likelihoodStats)
+        return self.__convertBatchJobResults(pool.result)

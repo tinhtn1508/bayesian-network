@@ -53,12 +53,12 @@ class BayesianNetworkRunner:
             return "[ERROR] Invalid output path: {}".format(output)
         return None
 
-    def __produceNetwork(self, model: str) -> BayesianNetwork:
+    def __produceNetwork(self, model: str, algorithm: str) -> BayesianNetwork:
         parser: ModelParser = ModelParser(model)
         parser.parse()
 
         nodes: Dict[str, Node] = parser.getNodes()
-        network: BayesianNetwork = BayesianNetwork()
+        network: BayesianNetwork = BayesianNetwork.factory(algorithm)
         for name, node in nodes.items():
             if not node.isCondition():
                 continue
@@ -78,8 +78,7 @@ class BayesianNetworkRunner:
         return parser.getQueriesTable()
 
     def run(self):
-        self.__network.generateSamples()
-        result: List[float] = self.__statsFunc(self.__queries)
+        result: List[float] = self.__network.allBatchJobs(self.__queries)
         self.__output.writeLines([s for s in map(str, result)])
 
 

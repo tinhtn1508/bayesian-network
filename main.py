@@ -1,7 +1,6 @@
 import graph
 import argparse
 import os
-from common import timeExecute
 from model import (
     Node,
     ModelParser,
@@ -16,33 +15,17 @@ from typing import (
     Tuple,
 )
 
-
 class BayesianNetworkRunner:
-    def __init__(
-        self, modelFile: str, testFile: str, algorithm: str, output: str
-    ) -> None:
-        err: Optional[str] = self.__checkArguments(
-            modelFile, testFile, algorithm, output
-        )
+    def __init__(self, modelFile: str, testFile: str, algorithm: str, output: str) -> None:
+        err: Optional[str] = self.__checkArguments(modelFile, testFile, algorithm, output)
         if err is not None:
-            raise Exception(err)
-        self.__network: BayesianNetwork = self.__produceNetwork(modelFile)
-        self.__queries: List[
-            Tuple[Dict[str, str], Dict[str, str]]
-        ] = self.__produceQuery(testFile)
-        self.__statsFunc: Callable[
-            [List[Tuple[Dict[str, str], Dict[str, str]]]], List[float]
-        ] = self.__network.forwardStatsBatch
-        if algorithm == "likelihood":
-            self.__statsFunc = self.__network.likelihoodStatsBatch
-        elif algorithm == "gibbs":
-            pass
-            # TODO
+            print(err)
+            exit()
+        self.__network: BayesianNetwork = self.__produceNetwork(modelFile, algorithm)
+        self.__queries: List[Tuple[Dict[str, str], Dict[str, str]]] = self.__produceQuery(testFile)
         self.__output = TxtParser(output)
 
-    def __checkArguments(
-        self, model: str, test: str, algorithm: str, output: str
-    ) -> Optional[str]:
+    def __checkArguments(self, model: str, test: str, algorithm: str, output: str) -> Optional[str]:
         if not os.path.exists(model):
             return "[ERROR] The file {} does not exist.\n".format(model)
         if not os.path.exists(test):
@@ -78,31 +61,26 @@ class BayesianNetworkRunner:
         return parser.getQueriesTable()
 
     def run(self):
-        result: List[float] = self.__network.allBatchJobs(self.__queries)
+        result: List[float] = self.__network.batchQuery(self.__queries)
         self.__output.writeLines([s for s in map(str, result)])
 
-
-# @timeExecute
 def main() -> None:
     parser: ArgumentParser = argparse.ArgumentParser()
-    parser.add_argument("-m", "--model", required=True, help="path file to model")
-    parser.add_argument("-t", "--test", required=True, help="path file to queries")
+    parser.add_argument("-m", "--model", help = "path file to model")
+    parser.add_argument("-t", "--test", help = "path file to queries")
+    parser.add_argument("-o", "--output", default = "output.txt", help = "path file to output")
     parser.add_argument(
-        "-o", "--output", default="output.txt", help="path file to output"
-    )
-    parser.add_argument(
-        "-a", "--algorithm", default="forward", help="forward | likelihood | gibbs"
+        "-a", "--algorithm", default = "forward", help = "forward | likelihood | gibbs"
     )
     args = parser.parse_args()
-
-    try:
-        BayesianNetworkRunner(args.model, args.test, args.algorithm, args.output).run()
-    except Exception as e:
-        print("Failed: {}".format(e))
-    else:
-        print("The inference procedure is successful !!!!!!!")
-        print("Please check output at here: {}".format(os.path.abspath(args.output)))
-
+    if args.model is None or args.test is None or args.algorithm is None:
+        warning = "\nThe agruments [--model, --test, --algorithm] can not be empty\n"
+        warning += "For more details, you can use the command [main.py -h]\n"
+        print(warning)
+        exit()
+    BayesianNetworkRunner(args.model, args.test, args.algorithm, args.output).run()
 
 if __name__ == "__main__":
     main()
+
+
